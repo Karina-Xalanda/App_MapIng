@@ -42,6 +42,12 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.rememberCameraPositionState
+// imports para dibujar marcadores en el mapa
+import com.example.maping.viewmodel.MapViewModel
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.MarkerState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 
 // -----------------------
 // 1. PANTALLA DE INICIO DE SESIÓN
@@ -165,9 +171,13 @@ fun LoginScreen(
 // -----------------------
 @Composable
 fun MainMapScreen(
-    onNavigateToUpload: () -> Unit,
-    onNavigateToProfile: () -> Unit
+viewModel: MapViewModel = viewModel(),
+onNavigateToUpload: () -> Unit,
+onNavigateToProfile: () -> Unit
 ) {
+    // 2stado de los posts
+    val posts by viewModel.posts.collectAsState()
+
     // Coordenadas iniciales (FIEE UV - Aproximadas)
     val fieeLocation = LatLng(19.1673, -96.1216)
 
@@ -190,7 +200,7 @@ fun MainMapScreen(
         floatingActionButtonPosition = FabPosition.Center
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            // Header
+            // Header (Sin cambios)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -217,7 +227,20 @@ fun MainMapScreen(
                     modifier = Modifier.fillMaxSize(),
                     cameraPositionState = cameraPositionState,
                     uiSettings = MapUiSettings(zoomControlsEnabled = false)
-                )
+                ) {
+                    // 3. Iteramos sobre la lista de posts y creamos marcadores
+                    posts.forEach { post ->
+                        Marker(
+                            state = MarkerState(position = LatLng(post.latitude, post.longitude)),
+                            title = post.comment,
+                            snippet = "Ver detalle",
+                            // Opcional: Al hacer clic en la ventana de información, podrías navegar al detalle
+                            onInfoWindowClick = {
+                                // Aquí podrías navegar a DetailScreen pasando el post.id
+                            }
+                        )
+                    }
+                }
             }
         }
     }
