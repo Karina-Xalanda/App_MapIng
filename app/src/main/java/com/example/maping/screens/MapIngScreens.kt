@@ -47,6 +47,11 @@ import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+// otros imports
+import com.example.maping.viewmodel.UploadViewModel
+import com.example.maping.viewmodel.PostUploadState
+import androidx.lifecycle.viewmodel.compose.viewModel
+import android.widget.Toast // necesario para mostrar el mensaje de exito
 
 // -----------------------
 // 1. PANTALLA DE INICIO DE SESIÓN
@@ -250,17 +255,22 @@ fun MainMapScreen(
 // -----------------------
 @Composable
 fun UploadPostScreen(
+    viewModel: UploadViewModel = viewModel(),
     onPostUploaded: () -> Unit
 ) {
     val context = LocalContext.current
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var comment by remember { mutableStateOf("") }
 
+    // Observar el estado de subida
+    val uploadState by viewModel.postState.collectAsState()
+
     // Variables para el GPS
     var locationText by remember { mutableStateOf("Buscando ubicación GPS...") }
     var coordinates by remember { mutableStateOf<LatLng?>(null) }
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
+    // logica para obtener la ubicación
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -268,11 +278,9 @@ fun UploadPostScreen(
         val coarseLocationGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
 
         if (fineLocationGranted || coarseLocationGranted) {
-            // Verificamos explícitamente antes de llamar (Doble seguridad)
             if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
                 ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
             ) {
-                // AQUÍ AGREGAMOS LA ANOTACIÓN PARA CALMAR EL ERROR ROJO
                 @SuppressLint("MissingPermission")
                 fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                     if (location != null) {
@@ -297,6 +305,8 @@ fun UploadPostScreen(
             )
         )
     }
+    // Fin de la logica de ubicacion
+
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -304,6 +314,27 @@ fun UploadPostScreen(
         imageUri = uri
     }
 
+    // EFECTO PARA MANEJAR EL ESTADO DE LA SUBIDA ---
+    LaunchedEffect(uploadState) {
+        when (uploadState) {
+            is PostUploadState.Success -> {
+                Toast.makeText(context, "Publicación subida con éxito!", Toast.LENGTH_LONG).show()
+                viewModel.resetState()
+                onPostUploaded()
+            }
+            is PostUploadState.Error -> {
+                val message = (uploadState as PostUploadState.Error).message
+                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                viewModel.resetState()
+            }
+            else -> {}
+        }
+    }
+
+    // Determinar si la UI está bloqueada
+    val isLoading = uploadState is PostUploadState.Loading
+
+    // UI
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -317,7 +348,7 @@ fun UploadPostScreen(
                 .fillMaxWidth()
                 .height(200.dp)
                 .background(Color.LightGray, RoundedCornerShape(12.dp))
-                .clickable { galleryLauncher.launch("image/*") },
+                .clickable(enabled = !isLoading) { galleryLauncher.launch("image/*") },
             contentAlignment = Alignment.Center
         ) {
             if (imageUri != null) {
@@ -337,7 +368,8 @@ fun UploadPostScreen(
         Button(
             onClick = { galleryLauncher.launch("image/*") },
             colors = ButtonDefaults.buttonColors(containerColor = InstitutionalGreen),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
         ) {
             Icon(Icons.Default.CameraAlt, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
@@ -349,33 +381,58 @@ fun UploadPostScreen(
         OutlinedTextField(
             value = comment,
             onValueChange = { comment = it },
-            label = { Text("Agrega un comentario:") },
+            label = { Text("Agrega un comentario...") },
             modifier = Modifier.fillMaxWidth().height(100.dp),
-            singleLine = false
+            singleLine = false,
+            enabled = !isLoading
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Mostrar estado del GPS
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.LocationOn, contentDescription = null, tint = if(coordinates!=null) InstitutionalGreen else Color.Gray)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(locationText, color = Color.Gray, fontSize = 12.sp)
+        // Mostrar estado de la subida
+        if (isLoading) {
+            val loadingMessage = (uploadState as PostUploadState.Loading).message
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = InstitutionalGreen)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(loadingMessage, color = InstitutionalGreen, fontSize = 12.sp)
+            }
+        } else {
+            // estado del GPS
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.LocationOn, contentDescription = null, tint = if(coordinates!=null) InstitutionalGreen else Color.Gray)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(locationText, color = Color.Gray, fontSize = 12.sp)
+            }
         }
 
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
-            onClick = onPostUploaded,
+            //CONEXION DEL BOTON ---
+            onClick = {
+                imageUri?.let { uri ->
+                    coordinates?.let { coords ->
+                        viewModel.uploadPost(
+                            photoUri = uri,
+                            lat = coords.latitude,
+                            lng = coords.longitude,
+                            comment = comment
+                        )
+                    }
+                }
+            },
             colors = ButtonDefaults.buttonColors(containerColor = InstitutionalGreen),
             modifier = Modifier.fillMaxWidth(),
-            // Se habilita solo si hay imagen y GPS
-            enabled = (imageUri != null && coordinates != null)
+            // Habilitado solo si hay imagen, GPS y NO está cargando
+            enabled = (imageUri != null && coordinates != null && !isLoading)
         ) {
-            Text("Subir publicación")
+            Text(if (isLoading) "Subiendo..." else "Subir publicación")
         }
     }
 }
+
+
 
 // -----------------------
 // 4. PANTALLA DETALLE DEL LUGAR
