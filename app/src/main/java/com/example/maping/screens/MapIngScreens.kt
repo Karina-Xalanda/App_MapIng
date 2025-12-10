@@ -171,20 +171,19 @@ fun LoginScreen(
 }
 
 // -----------------------
-// 2. PANTALLA DEL MAPA PRINCIPAL
+// 2. PANTALLA DEL MAPA PRINCIPAL (MODIFICADA)
 // -----------------------
 @Composable
 fun MainMapScreen(
     viewModel: MapViewModel = viewModel(),
     onNavigateToUpload: () -> Unit,
-    onNavigateToProfile: () -> Unit
+    onNavigateToProfile: () -> Unit,
+    onNavigateToDetail: (String) -> Unit
 ) {
-    // estado de los posts
     val posts by viewModel.posts.collectAsState()
 
-    // Coordenadas iniciales (FIEE UV - Aproximadas)
+    // Coordenadas iniciales (FIEE UV)
     val fieeLocation = LatLng(19.1673, -96.1216)
-
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(fieeLocation, 16f)
     }
@@ -204,11 +203,9 @@ fun MainMapScreen(
         floatingActionButtonPosition = FabPosition.Center
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            // Header (Sin cambios)
+            // Header
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -222,25 +219,20 @@ fun MainMapScreen(
             }
 
             // Mapa de Google
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 GoogleMap(
                     modifier = Modifier.fillMaxSize(),
                     cameraPositionState = cameraPositionState,
                     uiSettings = MapUiSettings(zoomControlsEnabled = false)
                 ) {
-                    // 3. Iteramos sobre la lista de posts y creamos marcadores
                     posts.forEach { post ->
                         Marker(
                             state = MarkerState(position = LatLng(post.latitude, post.longitude)),
                             title = post.comment,
-                            snippet = "Ver detalle",
-                            // Opcional: Al hacer clic en la ventana de información, podrías navegar al detalle
+                            snippet = "Toca para ver detalles",
                             onInfoWindowClick = {
-                                // Aquí podrías navegar a DetailScreen pasando el post.id
+
+                                onNavigateToDetail(post.id)
                             }
                         )
                     }
@@ -439,34 +431,50 @@ fun UploadPostScreen(
 // -----------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlaceDetailScreen() {
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Detalle del Lugar", fontSize = 22.sp, color = InstitutionalGreen, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally))
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(250.dp)
-                .background(Color.LightGray, RoundedCornerShape(12.dp))
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-        Text("Laboratorio de robotica", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("Esta muy bien equipado, se encuentra entre el edificio N y L, en planta baja.", fontSize = 16.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("Subido por @user123", color = Color.Gray, fontSize = 14.sp)
-
-        Spacer(modifier = Modifier.height(24.dp))
-        OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Default.FavoriteBorder, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Me gusta", color = Color.Black)
+fun PlaceDetailScreen(postId: String, onNavigateBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Detalle", color = Color.White) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = InstitutionalGreen)
+            )
         }
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) {
-            Text("Comentar", color = Color.Black)
+    ) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(250.dp)
+                    .background(Color.LightGray, RoundedCornerShape(12.dp))
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Laboratorio de robotica", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+
+            // Mostramos el ID real para verificar que la navegación funciona
+            Text("ID del Post: $postId", fontSize = 12.sp, color = Color.Gray)
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Esta muy bien equipado, se encuentra entre el edificio N y L, en planta baja.", fontSize = 16.sp)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Subido por @user123", color = Color.Gray, fontSize = 14.sp)
+
+            Spacer(modifier = Modifier.height(24.dp))
+            OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.FavoriteBorder, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Me gusta", color = Color.Black)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) {
+                Text("Comentar", color = Color.Black)
+            }
         }
     }
 }

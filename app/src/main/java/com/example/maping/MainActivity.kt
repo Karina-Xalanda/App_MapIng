@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. Verificar si el Activity fue iniciado por un Intent de NFC
+        //  Verificar si el Activity fue iniciado por un Intent de NFC
         val nfcData = getNfcDataFromIntent(intent)
         // Definir la ruta de inicio. Si hay datos NFC, vamos a NfcDetail.
         val startRoute = if (nfcData != null) {
@@ -79,15 +79,13 @@ class MainActivity : ComponentActivity() {
             MapIngTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     val navController = rememberNavController()
-
-                    // Configuramos el NavHost con la ruta de inicio dinámica
+// Configuramos el NavHost con la ruta de inicio dinámica
                     NavHost(navController = navController, startDestination = startRoute) {
 
                         // 1. LOGIN
                         composable(AppScreen.Login.route) {
                             LoginScreen(
                                 onLoginSuccess = {
-                                    // Al entrar, vamos al mapa y borramos el login del historial
                                     navController.navigate(AppScreen.Map.route) {
                                         popUpTo(AppScreen.Login.route) { inclusive = true }
                                     }
@@ -99,14 +97,18 @@ class MainActivity : ComponentActivity() {
                         composable(AppScreen.Map.route) {
                             MainMapScreen(
                                 onNavigateToUpload = { navController.navigate(AppScreen.Upload.route) },
-                                onNavigateToProfile = { navController.navigate(AppScreen.Profile.route) }
+                                onNavigateToProfile = { navController.navigate(AppScreen.Profile.route) },
+                                onNavigateToDetail = { postId ->
+                                    // Navegamos pasando el ID
+                                    navController.navigate(AppScreen.Detail.createRoute(postId))
+                                }
                             )
                         }
 
                         // 3. SUBIR PUBLICACIÓN
                         composable(AppScreen.Upload.route) {
                             UploadPostScreen(
-                                onPostUploaded = { navController.popBackStack() } // Vuelve atrás
+                                onPostUploaded = { navController.popBackStack() }
                             )
                         }
 
@@ -114,7 +116,6 @@ class MainActivity : ComponentActivity() {
                         composable(AppScreen.Profile.route) {
                             ProfileScreen(
                                 onLogout = {
-                                    // Al salir, volvemos al Login
                                     navController.navigate(AppScreen.Login.route) {
                                         popUpTo(AppScreen.Map.route) { inclusive = true }
                                     }
@@ -122,21 +123,30 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // 5. NFC DETAIL (Nueva pantalla)
+                        // 5. DETALLE DEL LUGAR
+                        composable(
+                            route = AppScreen.Detail.route,
+                            arguments = listOf(navArgument("postId") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val postId = backStackEntry.arguments?.getString("postId") ?: "Desconocido"
+                            PlaceDetailScreen(
+                                postId = postId,
+                                onNavigateBack = { navController.popBackStack() }
+                            )
+                        }
+
+                        // 6. NFC DETAIL
                         composable(
                             route = AppScreen.NfcDetail.route,
                             arguments = listOf(navArgument("tagData") { type = NavType.StringType })
                         ) { backStackEntry ->
-                            // Decodificamos la data antes de pasarla al composable
-                            val tagData = backStackEntry.arguments?.getString("tagData") ?: "ERROR: Datos no encontrados"
+                            val tagData = backStackEntry.arguments?.getString("tagData") ?: "Error"
                             val decodedData = remember(tagData) {
                                 URLDecoder.decode(tagData, StandardCharsets.UTF_8.toString())
                             }
                             NfcDetailScreen(
                                 tagData = decodedData,
                                 onNavigateBack = {
-                                    // Volver al mapa si el usuario está logueado, o al login si no.
-                                    // Por ahora, volvemos al login para simplificar el flujo.
                                     navController.navigate(AppScreen.Login.route) {
                                         popUpTo(AppScreen.NfcDetail.route) { inclusive = true }
                                     }
