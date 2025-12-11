@@ -62,6 +62,8 @@ import androidx.compose.ui.text.input.ImeAction // FIX: Importación de Compose
 import androidx.compose.foundation.text.KeyboardOptions
 import coil.compose.AsyncImage // NUEVA LÍNEA: Coil para carga de imágenes
 import androidx.compose.ui.layout.ContentScale // NUEVA LÍNEA: Para Coil
+import androidx.compose.ui.text.input.KeyboardType // <--- AÑADIDA
+import androidx.compose.ui.text.input.PasswordVisualTransformation // <--- AÑADIDA
 
 // -----------------------
 // 1. PANTALLA DE INICIO DE SESIÓN
@@ -73,6 +75,10 @@ fun LoginScreen(
 ) {
     val context = LocalContext.current
     val userState by viewModel.userState.collectAsState()
+
+    // Estados mutables para capturar la entrada del usuario
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
 
     // Configuración de Google
     val googleSignInOptions = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -108,38 +114,44 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Logo
+        // Logo (Placeholder de texto "MapIng" eliminado, reemplazado por icono)
         Box(
             modifier = Modifier
                 .size(120.dp)
                 .background(InstitutionalGreen, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text("MapIng", color = Color.White, fontWeight = FontWeight.Bold)
+            Icon(Icons.Default.LocationOn, contentDescription = "Logo", tint = Color.White, modifier = Modifier.size(72.dp))
         }
 
         Spacer(modifier = Modifier.height(32.dp))
         Text("Inicio de sesión", fontSize = 24.sp, fontWeight = FontWeight.Bold)
 
         Spacer(modifier = Modifier.height(16.dp))
-        // Campos de texto de Correo y Contraseña (Mocked)
+        // Campo de Correo Electrónico (Funcional)
         OutlinedTextField(
-            value = "", onValueChange = {},
+            value = email,
+            onValueChange = { email = it },
             label = { Text("Correo Electrónico") },
             modifier = Modifier.fillMaxWidth(),
-            enabled = isUiEnabled
+            enabled = isUiEnabled,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
         Spacer(modifier = Modifier.height(8.dp))
+        // Campo de Contraseña (Funcional y Oculto)
         OutlinedTextField(
-            value = "", onValueChange = {},
+            value = password,
+            onValueChange = { password = it },
             label = { Text("Contraseña") },
             modifier = Modifier.fillMaxWidth(),
-            enabled = isUiEnabled
+            enabled = isUiEnabled,
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
         )
 
         Spacer(modifier = Modifier.height(24.dp))
         Button(
-            onClick = {}, // Vacío intencionalmente
+            onClick = {}, // Vacío intencionalmente (Autenticación manual no implementada)
             colors = ButtonDefaults.buttonColors(containerColor = InstitutionalGreen),
             modifier = Modifier.fillMaxWidth(),
             enabled = isUiEnabled
@@ -149,7 +161,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedButton(
-            onClick = {}, // Vacío intencionalmente
+            onClick = {}, // Vacío intencionalmente (Registro manual no implementado)
             modifier = Modifier.fillMaxWidth(),
             enabled = isUiEnabled
         ) {
@@ -188,9 +200,6 @@ fun LoginScreen(
                 modifier = Modifier.padding(top = 8.dp)
             )
         }
-
-        // Se elimina el Spacer y el Botón de desarrollador
-
     }
 }
 
@@ -451,7 +460,7 @@ fun UploadPostScreen(
 
 
 // -----------------------
-// 4. PANTALLA DETALLE DEL LUGAR (MODIFICADA: AHORA DINÁMICA CON LIKES Y COMENTARIOS Y IMAGEN)
+// 4. PANTALLA DETALLE DEL LUGAR (MODIFICADA: Ahora sin placeholder de descripción estática)
 // -----------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -531,7 +540,8 @@ fun PlaceDetailScreen(
                 Text("ID del Post: $postId", fontSize = 12.sp, color = Color.Gray)
 
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Esta muy bien equipado, se encuentra entre el edificio N y L, en planta baja.", fontSize = 16.sp)
+                // Placeholder de texto estático eliminado
+
                 Spacer(modifier = Modifier.height(8.dp))
                 // Mostrar el UID del dueño del post
                 Text("Subido por UID: ${currentPost.userId.take(6)}...", color = Color.Gray, fontSize = 14.sp)
@@ -587,7 +597,6 @@ fun PlaceDetailScreen(
                     label = { Text("Añadir comentario...") },
                     modifier = Modifier.weight(1f).heightIn(min = 50.dp, max = 150.dp),
                     singleLine = false,
-                    // CORRECCIÓN: Uso de nombres cortos después de la importación
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -623,7 +632,7 @@ fun CommentItem(comment: Comment) {
 }
 
 // -----------------------
-// 5. PANTALLA DE PERFIL (MODIFICADA: AHORA DINÁMICA CON IMAGEN REAL)
+// 5. PANTALLA DE PERFIL (MODIFICADA: Ahora muestra la imagen de la publicación en la cuadrícula)
 // -----------------------
 @Composable
 fun ProfileScreen(
@@ -647,7 +656,7 @@ fun ProfileScreen(
         Text("Perfil", fontSize = 22.sp, color = InstitutionalGreen, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Si el perfil no se ha cargado, mostrar un loading o un placeholder simple.
+        // Si el perfil no se ha cargado, mostrar un indicador de carga o un placeholder simple.
         userProfile?.let { user ->
             // Contenedor de la foto de perfil (AHORA CON IMAGEN REAL DE COIL)
             Box(
@@ -702,19 +711,18 @@ fun ProfileScreen(
                 modifier = Modifier.weight(1f)
             ) {
                 items(postCount) { index ->
-                    // Las cajas ahora representan el número real de publicaciones.
+                    // Muestra la imagen real de la publicación
                     Box(
                         modifier = Modifier
                             .aspectRatio(1f)
                             .background(Color.LightGray, RoundedCornerShape(4.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        // Muestra el comentario como placeholder del contenido
-                        Text(
-                            userPosts[index].comment.take(15) + "...", // Snippet del comentario
-                            fontSize = 10.sp,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(4.dp)
+                        AsyncImage(
+                            model = userPosts[index].imageUrl,
+                            contentDescription = userPosts[index].comment,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
                         )
                     }
                 }
