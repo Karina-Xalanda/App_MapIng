@@ -98,6 +98,9 @@ fun LoginScreen(
         }
     }
 
+    // Determinar si la UI está bloqueada (solo si está cargando)
+    val isUiEnabled = userState != UserState.Loading
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -119,29 +122,37 @@ fun LoginScreen(
         Text("Inicio de sesión", fontSize = 24.sp, fontWeight = FontWeight.Bold)
 
         Spacer(modifier = Modifier.height(16.dp))
+        // Campos de texto de Correo y Contraseña (Mocked)
         OutlinedTextField(
             value = "", onValueChange = {},
             label = { Text("Correo Electrónico") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = isUiEnabled
         )
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
             value = "", onValueChange = {},
             label = { Text("Contraseña") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = isUiEnabled
         )
 
         Spacer(modifier = Modifier.height(24.dp))
         Button(
-            onClick = {},
+            onClick = {}, // Vacío intencionalmente
             colors = ButtonDefaults.buttonColors(containerColor = InstitutionalGreen),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = isUiEnabled
         ) {
             Text("Iniciar sesión")
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = {}, // Vacío intencionalmente
+            modifier = Modifier.fillMaxWidth(),
+            enabled = isUiEnabled
+        ) {
             Text("Registrar", color = InstitutionalGreen)
         }
 
@@ -149,12 +160,23 @@ fun LoginScreen(
 
         // Botón Google Real
         OutlinedButton(
-            onClick = { launcher.launch(googleSignInClient.signInIntent) },
-            modifier = Modifier.fillMaxWidth()
+            onClick = {
+                if (isUiEnabled) {
+                    launcher.launch(googleSignInClient.signInIntent)
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = isUiEnabled
         ) {
             Icon(Icons.Default.AccountCircle, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
             Text("Continuar con Google", color = Color.Black)
+
+            // Si está cargando, muestra un indicador
+            if (userState is UserState.Loading) {
+                Spacer(modifier = Modifier.width(8.dp))
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = InstitutionalGreen)
+            }
         }
 
         // Mensaje de error
@@ -167,16 +189,8 @@ fun LoginScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        // Se elimina el Spacer y el Botón de desarrollador
 
-        // --- PUERTA TRASERA (SOLO PARA DESARROLLO) ---
-        Button(
-            onClick = onLoginSuccess,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("⚡ Entrar como Desarrollador (Bypass) ⚡")
-        }
     }
 }
 
