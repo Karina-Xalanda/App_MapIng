@@ -80,7 +80,10 @@ import com.example.maping.R
 // Necesario para PackageManager.PERMISSION_GRANTED
 import androidx.core.content.ContextCompat // Necesario para ContextCompat.checkSelfPermission
 import androidx.core.content.FileProvider // Necesario para FileProvider
-
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.rememberCameraPositionState
+import androidx.compose.ui.text.font.FontStyle
 // -----------------------
 // 1. PANTALLA DE INICIO DE SESIÓN
 // -----------------------
@@ -1088,44 +1091,107 @@ fun StatItem(count: String, label: String) {
     }
 }
 
-// -----------------------
-// 6. PANTALLA DETALLE NFC (MODIFICADA: Simplificada)
+/// -----------------------
+// 6. PANTALLA DETALLE NFC (MODIFICADA: Muestra Mapa y Punto de Interés)
 // -----------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NfcDetailScreen(
-    tagData: String,
+    tagData: String, // Recibe el String Formateado: "Nombre|||Descripción|||Lat,Lon"
     onNavigateBack: () -> Unit
 ) {
-    // Scaffold y TopBar eliminados para solo mostrar el contenido
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center // Centrar el contenido
-    ) {
-        // Se deja solo el texto del NFC, sin encabezados ni iconos
-        Text(
-            text = tagData,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            color = Color.Black
-        )
+    // 1. Parsear los datos del JSON formateado
+    val parts = tagData.split("|||")
 
-        Spacer(modifier = Modifier.height(32.dp))
+    val name = parts.getOrElse(0) { "Nombre no encontrado" }
+    val description = parts.getOrElse(1) { "Descripción no encontrada" }
+    val coordinatesString = parts.getOrElse(2) { "0.0,0.0" }
 
-        // Botón de Salida
-        Button(
-            onClick = onNavigateBack,
-            colors = ButtonDefaults.buttonColors(containerColor = InstitutionalGreen)
+    // Convertir la cadena de coordenadas (Lat,Lon) a un objeto LatLng
+    val latLng = try {
+        val coords = coordinatesString.split(",")
+        // Aseguramos que la latitud y longitud tengan valores válidos antes de convertir
+        val lat = coords.getOrElse(0) { "0.0" }.toDoubleOrNull() ?: 0.0
+        val lng = coords.getOrElse(1) { "0.0" }.toDoubleOrNull() ?: 0.0
+        LatLng(lat, lng)
+    } catch (e: Exception) {
+        LatLng(0.0, 0.0) // LatLng por defecto si falla la lectura o el formato
+    }
+
+    // 2. Configuración del Mapa para centrarse en el punto de interés
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(latLng, 17f) // Zoom 17 es bueno para puntos de interés
+    }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar( // Componente M3 que ya está siendo usado en su proyecto
+                title = { Text("Punto de Interés: $name", color = Color.White) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        // FIX: Usamos Icons.Default.ArrowBack para resolver la importación
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = InstitutionalGreen)
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Volver a Inicio")
+            // MAPA DE GOOGLE (Punto de Interés)
+            GoogleMap(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.7f), // Ocupa la mayoría del espacio
+                cameraPositionState = cameraPositionState
+            ) {
+                // Marcador bonito en la posición leída del NFC
+                Marker(
+                    state = MarkerState(position = latLng),
+                    title = name,
+                    snippet = description,
+                    visible = (latLng.latitude != 0.0 || latLng.longitude != 0.0) // Ocultar si las coordenadas son 0,0
+                )
+            }
+
+            // DETALLES ADICIONALES (Sección de texto)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(0.3f) // Ocupa el espacio restante
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.Start
+            ) {
+                // Título del Lugar (Nombre)
+                Text(
+                    text = name,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                // Descripción
+                Text(
+                    text = description,
+                    fontSize = 16.sp,
+                    color = Color.DarkGray
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                // Coordenadas
+                Text(
+                    text = "Coordenadas: ${latLng.latitude}, ${latLng.longitude}",
+                    fontSize = 14.sp,
+                    fontStyle = FontStyle.Italic
+                )
+            }
         }
     }
 }
-
 // -----------------------
 // 7. PANTALLA DE BÚSQUEDA DE USUARIOS/AMIGOS
 // -----------------------

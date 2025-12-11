@@ -82,5 +82,6 @@ dependencies {
     implementation(libs.play.services.maps)
 
     implementation("io.coil-kt:coil-compose:2.6.0") // Añadir esta línea
+    implementation("com.google.code.gson:gson:2.10.1")
 
 }

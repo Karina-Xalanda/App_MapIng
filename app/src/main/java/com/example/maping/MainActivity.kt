@@ -4,13 +4,14 @@ import android.content.Intent
 import android.nfc.NdefMessage
 import android.nfc.NdefRecord
 import android.nfc.NfcAdapter
-import android.os.Build // Importación necesaria para el chequeo de versión
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
@@ -23,14 +24,22 @@ import com.example.maping.ui.theme.MapIngTheme
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import com.google.gson.Gson
+
+// CLASE DE DATOS PARA EL JSON DEL NFC
+data class NfcData(
+    val name: String,
+    val description: String,
+    val latitude: Double,
+    val longitude: Double
+)
 
 class MainActivity : ComponentActivity() {
 
-    // Función auxiliar para extraer datos de texto NDEF del Intent
+    // Función auxiliar para extraer datos JSON NDEF del Intent (SIN CAMBIOS)
     private fun getNfcDataFromIntent(intent: Intent?): String? {
         if (intent == null || intent.action != NfcAdapter.ACTION_NDEF_DISCOVERED) return null
 
-        // Manejo de 'getParcelableArrayExtra' deprecado (Línea 32 corregida)
         val rawMessages = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES, android.os.Parcelable::class.java)
         } else {
@@ -42,41 +51,59 @@ class MainActivity : ComponentActivity() {
             val message = rawMessages[0] as? NdefMessage
             val record = message?.records?.firstOrNull()
 
-            if (record != null && record.tnf == NdefRecord.TNF_WELL_KNOWN && record.type.contentEquals(NdefRecord.RTD_TEXT)) {
+            if (record != null && record.tnf == NdefRecord.TNF_MIME_MEDIA &&
+                record.type.contentEquals("application/json".toByteArray(StandardCharsets.US_ASCII))) {
+
                 return try {
-                    val payload = record.payload
-                    // Lógica estándar para decodificar un registro NDEF de texto
-                    val textEncoding = if ((payload[0].toInt() and 0x80) == 0) StandardCharsets.UTF_8 else StandardCharsets.UTF_16
-                    val languageCodeLength = payload[0].toInt() and 0x3f
-                    String(payload, languageCodeLength + 1, payload.size - languageCodeLength - 1, textEncoding)
+                    val jsonBytes = record.payload
+                    val jsonString = String(jsonBytes, StandardCharsets.UTF_8)
+
+                    val gson = Gson()
+                    val nfcDataObject = gson.fromJson(jsonString, NfcData::class.java)
+
+                    val formattedData = "${nfcDataObject.name}|||${nfcDataObject.description}|||${nfcDataObject.latitude},${nfcDataObject.longitude}"
+                    return formattedData
+
                 } catch (e: Exception) {
-                    "Error al leer el NDEF: ${e.message}"
+                    return "Error al parsear el JSON: ${e.message}. El tag debe contener: {\"name\": \"...\", \"description\": \"...\", \"latitude\": 0.0, \"longitude\": 0.0}"
                 }
             }
         }
-        return "Tag detectado, pero sin contenido de texto simple NDEF."
+        return null
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        //  Verificar si el Activity fue iniciado por un Intent de NFC
+        // 1. PROCESAR NFC DATA FUERA DE COMPOSE
         val nfcData = getNfcDataFromIntent(intent)
-        // Definir la ruta de inicio. Si hay datos NFC, vamos a NfcDetail.
-        val startRoute = if (nfcData != null) {
-            // Codificamos la data para que pueda ser pasada como argumento en la ruta
-            val encodedData = URLEncoder.encode(nfcData, StandardCharsets.UTF_8.toString())
-            AppScreen.NfcDetail.createRoute(encodedData)
+        val initialNfcDataEncoded = if (nfcData != null) {
+            URLEncoder.encode(nfcData, StandardCharsets.UTF_8.toString())
         } else {
-            // Si no hay NFC, la ruta normal es Login
-            AppScreen.Login.route
+            null
         }
+
+        // CORRECCIÓN CLAVE: La ruta base SIEMPRE es Login.
+        // Esto garantiza que el NavGraph se inicialice sin problemas.
+        val startRoute = AppScreen.Login.route
 
         setContent {
             MapIngTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     val navController = rememberNavController()
-// Configuramos el NavHost con la ruta de inicio dinámica
+
+                    // NAVEGACIÓN CONDICIONAL: Solo navegar si hay datos NFC y la ruta es válida.
+                    LaunchedEffect(initialNfcDataEncoded) {
+                        if (initialNfcDataEncoded != null && navController.currentDestination?.route == startRoute) {
+                            // Navega al detalle NFC DESPUÉS de que el NavHost esté listo
+                            navController.navigate(AppScreen.NfcDetail.createRoute(initialNfcDataEncoded)) {
+                                // Limpia la pila para que no pueda volver a Login
+                                popUpTo(AppScreen.Login.route) { inclusive = true }
+                            }
+                        }
+                    }
+
+                    // NavHost comienza siempre en la ruta base de Login
                     NavHost(navController = navController, startDestination = startRoute) {
 
                         // 1. LOGIN
@@ -96,7 +123,6 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToUpload = { navController.navigate(AppScreen.Upload.route) },
                                 onNavigateToProfile = { navController.navigate(AppScreen.Profile.route) },
                                 onNavigateToDetail = { postId ->
-                                    // Navegamos pasando el ID
                                     navController.navigate(AppScreen.Detail.createRoute(postId))
                                 }
                             )
@@ -117,7 +143,6 @@ class MainActivity : ComponentActivity() {
                                         popUpTo(AppScreen.Map.route) { inclusive = true }
                                     }
                                 },
-                                // Navegación a la nueva pantalla de búsqueda de amigos
                                 onNavigateToFindFriends = { navController.navigate(AppScreen.FindFriends.route) }
                             )
                         }
@@ -139,7 +164,7 @@ class MainActivity : ComponentActivity() {
                             route = AppScreen.NfcDetail.route,
                             arguments = listOf(navArgument("tagData") { type = NavType.StringType })
                         ) { backStackEntry ->
-                            val tagData = backStackEntry.arguments?.getString("tagData") ?: "Error"
+                            val tagData = backStackEntry.arguments?.getString("tagData") ?: "Error al leer Tag"
                             val decodedData = remember(tagData) {
                                 URLDecoder.decode(tagData, StandardCharsets.UTF_8.toString())
                             }
@@ -165,15 +190,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Sobrescribir onNewIntent para manejar la lectura NFC mientras la Activity ya está activa
-    // Se corrige la firma de la función (Línea 142 corregida)
+    // Sobrescribir onNewIntent
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        val nfcData = getNfcDataFromIntent(intent)
-        if (nfcData != null) {
-            // Si se detecta un nuevo tag, actualizamos el intent y forzamos la recreación
-            this.intent = intent
-            recreate()
-        }
+        // Solo actualizar el intent para que el LaunchedEffect lo use si detecta un nuevo tag
+        this.intent = intent
     }
 }
