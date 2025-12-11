@@ -9,6 +9,7 @@ sealed class AppScreen(val route: String) {
 
     object Detail : AppScreen("detail/{postId}") {
         fun createRoute(postId: String) = "detail/$postId"
+    }
 
     // AÑADIDO PARA NFC
     object NfcDetail : AppScreen("nfc_detail/{tagData}") {

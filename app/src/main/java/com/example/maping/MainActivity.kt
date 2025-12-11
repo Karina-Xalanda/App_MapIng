@@ -25,7 +25,7 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 
-import androidx.navigation.compose.navArgument // Para usar argumentos en la navegación
+
 class MainActivity : ComponentActivity() {
 
     // Función auxiliar para extraer datos de texto NDEF del Intent

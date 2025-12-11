@@ -5,7 +5,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.maping.model.Post // importamos el modelo Post
-import com.google.firebase.Firebase
+//import com.google.firebase.Firebase
+import com.google.firebase.ktx.Firebase
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.storage.ktx.storage
