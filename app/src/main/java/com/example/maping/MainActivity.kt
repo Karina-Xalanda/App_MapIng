@@ -24,8 +24,7 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-// imports:
-import androidx.navigation.NavType // Para definir el tipo de argumento
+
 import androidx.navigation.compose.navArgument // Para usar argumentos en la navegación
 class MainActivity : ComponentActivity() {
 
