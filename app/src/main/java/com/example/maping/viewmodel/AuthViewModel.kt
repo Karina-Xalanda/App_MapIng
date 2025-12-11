@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import android.util.Log // Asegúrate de importar Log
+import android.util.Log
 
 class AuthViewModel : ViewModel() {
     private val auth: FirebaseAuth = Firebase.auth
@@ -23,6 +23,64 @@ class AuthViewModel : ViewModel() {
 
     private val _userState = MutableStateFlow<UserState>(UserState.LoggedOut)
     val userState: StateFlow<UserState> = _userState
+
+    // NUEVA FUNCIÓN: Iniciar sesión con correo y contraseña
+    fun signIn(email: String, password: String) {
+        viewModelScope.launch {
+            if (email.isBlank() || password.isBlank()) {
+                _userState.value = UserState.Error("Correo y contraseña no pueden estar vacíos.")
+                return@launch
+            }
+            _userState.value = UserState.Loading
+
+            try {
+                auth.signInWithEmailAndPassword(email, password).await()
+                _userState.value = UserState.Success
+                Log.d("AuthViewModel", "Login con Email/Pass Exitoso.")
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Error al iniciar sesión con email/pass: ${e.message}", e)
+                _userState.value = UserState.Error("Error de credenciales: ${e.message ?: "Intente de nuevo."}")
+            }
+        }
+    }
+
+    // NUEVA FUNCIÓN: Registrar nuevo usuario con correo, contraseña y nombre de usuario
+    fun register(email: String, password: String, username: String) {
+        viewModelScope.launch {
+            if (email.isBlank() || password.isBlank() || username.isBlank()) {
+                _userState.value = UserState.Error("Todos los campos son obligatorios.")
+                return@launch
+            }
+            _userState.value = UserState.Loading
+
+            try {
+                // 1. Crear usuario en Firebase Auth
+                val authResult = auth.createUserWithEmailAndPassword(email, password).await()
+                val firebaseUser = authResult.user
+
+                if (firebaseUser != null) {
+                    // 2. Crear perfil en Firestore
+                    val newUser = User(
+                        uid = firebaseUser.uid,
+                        username = username,
+                        email = firebaseUser.email ?: email,
+                        profileImageUrl = "" // No hay foto de perfil por defecto para registro manual
+                    )
+                    db.collection("users").document(firebaseUser.uid).set(newUser).await()
+
+                    // 3. Éxito
+                    _userState.value = UserState.Success
+                    Log.d("AuthViewModel", "Registro Exitoso para UID: ${firebaseUser.uid}")
+                } else {
+                    _userState.value = UserState.Error("Registro fallido en Firebase Auth.")
+                }
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "Error al registrar usuario: ${e.message}", e)
+                _userState.value = UserState.Error("Error al registrar: ${e.message ?: "Intente con otro correo."}")
+            }
+        }
+    }
+
 
     fun signInWithGoogle(task: Task<GoogleSignInAccount>) {
         viewModelScope.launch {
@@ -94,6 +152,11 @@ class AuthViewModel : ViewModel() {
             Log.e("AuthViewModel", "Error al crear/actualizar perfil en Firestore: ${e.message}", e)
             // Si esto falla, la autenticación puede continuar, pero es bueno registrar el error.
         }
+    }
+
+    // NUEVA FUNCIÓN: Limpiar estado después de error/éxito
+    fun resetState() {
+        _userState.value = UserState.LoggedOut
     }
 }
 

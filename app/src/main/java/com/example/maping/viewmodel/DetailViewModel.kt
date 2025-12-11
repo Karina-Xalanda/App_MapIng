@@ -3,13 +3,14 @@ package com.example.maping.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.maping.model.Comment // IMPORTAR NUEVO MODELO
+import com.example.maping.model.Comment
 import com.example.maping.model.Post
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.storage.ktx.storage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -18,6 +19,7 @@ import kotlinx.coroutines.tasks.await
 class DetailViewModel : ViewModel() {
     private val db = Firebase.firestore
     private val auth = Firebase.auth
+    private val storage = Firebase.storage
     private val currentUserId = auth.currentUser?.uid
 
     // Estado para el Post específico
@@ -103,8 +105,89 @@ class DetailViewModel : ViewModel() {
         }
     }
 
+    // =====================================================================
+    // FUNCIONES PARA BORRAR/EDITAR COMENTARIOS Y BORRAR PUBLICACIÓN
+    // =====================================================================
 
-    // Lógica para dar o quitar 'Like' (Se mantiene igual)
+    // NUEVA FUNCIÓN: Eliminar un comentario
+    fun deleteComment(commentId: String) {
+        viewModelScope.launch {
+            try {
+                db.collection("comments").document(commentId).delete().await()
+                Log.d("DetailViewModel", "Comentario eliminado con éxito: $commentId")
+            } catch (e: Exception) {
+                Log.e("DetailViewModel", "Error al eliminar comentario: ${e.message}")
+            }
+        }
+    }
+
+    // NUEVA FUNCIÓN: Editar un comentario
+    fun editComment(commentId: String, newText: String) {
+        if (newText.isBlank()) return
+
+        viewModelScope.launch {
+            try {
+                db.collection("comments").document(commentId).update(
+                    mapOf(
+                        "text" to newText,
+                        "timestamp" to System.currentTimeMillis() // Actualiza el timestamp de edición
+                    )
+                ).await()
+                Log.d("DetailViewModel", "Comentario editado con éxito: $commentId")
+            } catch (e: Exception) {
+                Log.e("DetailViewModel", "Error al editar comentario: ${e.message}")
+            }
+        }
+    }
+
+    // NUEVA FUNCIÓN: Eliminar una publicación completa
+    fun deletePost(postId: String, imageUrl: String, postOwnerId: String, onPostDeleted: () -> Unit) {
+        if (currentUserId == null || currentUserId != postOwnerId) {
+            Log.e("DetailViewModel", "Usuario no autorizado para eliminar post.")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                // 1. Iniciar la transacción para actualizar el contador del usuario y borrar el post
+                db.runTransaction { transaction ->
+                    val userRef = db.collection("users").document(postOwnerId)
+
+                    // Decrementar postCount en el perfil del usuario
+                    transaction.update(userRef, "postCount", FieldValue.increment(-1))
+
+                    // Eliminar el documento del post
+                    val postRef = db.collection("posts").document(postId)
+                    transaction.delete(postRef)
+
+                    null
+                }.await()
+
+                // 2. Eliminar la imagen de Storage
+                if (imageUrl.isNotEmpty()) {
+                    storage.getReferenceFromUrl(imageUrl).delete().await()
+                }
+
+                // 3. Eliminar todos los comentarios asociados a este post
+                val commentsSnapshot = db.collection("comments").whereEqualTo("postId", postId).get().await()
+                if (!commentsSnapshot.isEmpty) {
+                    val batch = db.batch()
+                    commentsSnapshot.documents.forEach { doc ->
+                        batch.delete(doc.reference)
+                    }
+                    batch.commit().await()
+                }
+
+                Log.d("DetailViewModel", "Publicación, imagen y comentarios eliminados con éxito.")
+                onPostDeleted() // Llama al callback para que la UI navegue de vuelta
+
+            } catch (e: Exception) {
+                Log.e("DetailViewModel", "Error al eliminar la publicación: ${e.message}")
+            }
+        }
+    }
+
+    // Lógica para dar o quitar 'Like' (Corregida)
     fun toggleLike(postId: String, isCurrentlyLiked: Boolean) {
         if (currentUserId == null) {
             Log.e("DetailViewModel", "Usuario no autenticado para dar like.")
@@ -114,11 +197,13 @@ class DetailViewModel : ViewModel() {
         viewModelScope.launch {
             val postRef = db.collection("posts").document(postId)
 
-            // Usa Transaction para asegurar que el contador y la lista se actualicen juntos.
             try {
                 db.runTransaction { transaction ->
                     val snapshot = transaction.get(postRef)
                     val post = snapshot.toObject(Post::class.java) ?: return@runTransaction
+
+                    // Declarar la referencia del dueño aquí para que sea accesible en ambos bloques
+                    val postOwnerRef = db.collection("users").document(post.userId)
 
                     if (isCurrentlyLiked) {
                         // El usuario va a quitar el like
@@ -126,7 +211,6 @@ class DetailViewModel : ViewModel() {
                         transaction.update(postRef, "likeCount", FieldValue.increment(-1))
 
                         // Decrementar likeCount en el perfil del usuario que creó el post
-                        val postOwnerRef = db.collection("users").document(post.userId)
                         transaction.update(postOwnerRef, "likeCount", FieldValue.increment(-1))
 
                     } else {
@@ -135,7 +219,6 @@ class DetailViewModel : ViewModel() {
                         transaction.update(postRef, "likeCount", FieldValue.increment(1))
 
                         // Incrementar likeCount en el perfil del usuario que creó el post
-                        val postOwnerRef = db.collection("users").document(post.userId)
                         transaction.update(postOwnerRef, "likeCount", FieldValue.increment(1))
                     }
                     null

@@ -10,6 +10,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -56,14 +57,15 @@ import com.example.maping.viewmodel.ProfileViewModel
 import com.example.maping.viewmodel.DetailViewModel
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
-import com.example.maping.model.Comment // FIX: Importación de modelo de comentario
-import androidx.compose.foundation.layout.heightIn // FIX: Importación de Compose
-import androidx.compose.ui.text.input.ImeAction // FIX: Importación de Compose
+import com.example.maping.model.Comment
+import com.example.maping.model.Post
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardOptions
-import coil.compose.AsyncImage // NUEVA LÍNEA: Coil para carga de imágenes
-import androidx.compose.ui.layout.ContentScale // NUEVA LÍNEA: Para Coil
-import androidx.compose.ui.text.input.KeyboardType // <--- AÑADIDA
-import androidx.compose.ui.text.input.PasswordVisualTransformation // <--- AÑADIDA
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 
 // -----------------------
 // 1. PANTALLA DE INICIO DE SESIÓN
@@ -79,6 +81,8 @@ fun LoginScreen(
     // Estados mutables para capturar la entrada del usuario
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var isRegistering by remember { mutableStateOf(false) }
 
     // Configuración de Google
     val googleSignInOptions = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -100,6 +104,12 @@ fun LoginScreen(
     // Efecto de navegación si el login es exitoso
     LaunchedEffect(userState) {
         if (userState is UserState.Success) {
+            // Limpiamos los campos y el estado de registro
+            email = ""
+            password = ""
+            username = ""
+            isRegistering = false
+            viewModel.resetState()
             onLoginSuccess()
         }
     }
@@ -114,7 +124,7 @@ fun LoginScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // Logo (Placeholder de texto "MapIng" eliminado, reemplazado por icono)
+        // Logo
         Box(
             modifier = Modifier
                 .size(120.dp)
@@ -125,10 +135,24 @@ fun LoginScreen(
         }
 
         Spacer(modifier = Modifier.height(32.dp))
-        Text("Inicio de sesión", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Text(if(isRegistering) "Registro de usuario" else "Inicio de sesión", fontSize = 24.sp, fontWeight = FontWeight.Bold)
 
         Spacer(modifier = Modifier.height(16.dp))
-        // Campo de Correo Electrónico (Funcional)
+
+        // Campo de nombre de usuario (Solo para registro)
+        if (isRegistering) {
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("Nombre de Usuario") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = isUiEnabled,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // Campo de Correo Electrónico
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
@@ -138,7 +162,7 @@ fun LoginScreen(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
         Spacer(modifier = Modifier.height(8.dp))
-        // Campo de Contraseña (Funcional y Oculto)
+        // Campo de Contraseña
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
@@ -150,25 +174,40 @@ fun LoginScreen(
         )
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        // Botón principal (Login o Registrar)
         Button(
-            onClick = {}, // Vacío intencionalmente (Autenticación manual no implementada)
+            onClick = {
+                if (isRegistering) {
+                    viewModel.register(email, password, username)
+                } else {
+                    viewModel.signIn(email, password)
+                }
+            },
             colors = ButtonDefaults.buttonColors(containerColor = InstitutionalGreen),
             modifier = Modifier.fillMaxWidth(),
-            enabled = isUiEnabled
+            enabled = isUiEnabled && email.isNotBlank() && password.isNotBlank() && (!isRegistering || username.isNotBlank())
         ) {
-            Text("Iniciar sesión")
+            Text(if (isRegistering) "Completar Registro" else "Iniciar sesión")
         }
 
         Spacer(modifier = Modifier.height(8.dp))
+        // Botón secundario (Alternar entre Login y Registro)
         OutlinedButton(
-            onClick = {}, // Vacío intencionalmente (Registro manual no implementado)
+            onClick = {
+                isRegistering = !isRegistering
+                viewModel.resetState() // Limpiamos el estado al cambiar de modo
+            },
             modifier = Modifier.fillMaxWidth(),
             enabled = isUiEnabled
         ) {
-            Text("Registrar", color = InstitutionalGreen)
+            Text(if (isRegistering) "¿Ya tienes cuenta? Inicia sesión" else "Registrar nueva cuenta", color = InstitutionalGreen)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        // Separador visual
+        Text("o", color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
 
         // Botón Google Real
         OutlinedButton(
@@ -458,24 +497,30 @@ fun UploadPostScreen(
 }
 
 
-
 // -----------------------
-// 4. PANTALLA DETALLE DEL LUGAR (MODIFICADA: Ahora sin placeholder de descripción estática)
+// 4. PANTALLA DETALLE DEL LUGAR (CORREGIDA: Se mueve la lógica de borrado al onClick del botón)
 // -----------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaceDetailScreen(
     postId: String,
     onNavigateBack: () -> Unit,
-    viewModel: DetailViewModel = viewModel() // INYECTAR VIEWMODEL
+    viewModel: DetailViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     // Estados de datos
     val post by viewModel.post.collectAsState()
-    val comments by viewModel.comments.collectAsState() // NUEVO: Estado de comentarios
+    val comments by viewModel.comments.collectAsState()
 
-    // Estado de la UI
-    var commentInput by remember { mutableStateOf("") } // Estado del campo de comentario
+    // Estado de la UI para comentarios
+    var commentInput by remember { mutableStateOf("") }
     val currentUserId = remember { Firebase.auth.currentUser?.uid }
+
+    // Estados para Edición de Comentario
+    // Estas variables están correctamente definidas en el scope de la función principal
+    var commentToEdit by remember { mutableStateOf<Comment?>(null) }
+    var editInput by remember { mutableStateOf("") }
+    val showEditDialog = commentToEdit != null
 
     // Cargar datos al iniciar
     LaunchedEffect(postId) {
@@ -493,6 +538,44 @@ fun PlaceDetailScreen(
             viewModel.addComment(postId, commentInput.trim())
             commentInput = "" // Limpiar el campo
         }
+    }
+
+    // Lógica para guardar edición de comentario
+    val saveEdit = {
+        commentToEdit?.let { comment ->
+            if (editInput.isNotBlank() && editInput != comment.text) {
+                viewModel.editComment(comment.id, editInput.trim())
+            }
+            commentToEdit = null // Cerrar diálogo
+            editInput = ""
+        }
+    }
+
+    // Diálogo de Edición de Comentario
+    if (showEditDialog) {
+        AlertDialog(
+            onDismissRequest = { commentToEdit = null },
+            title = { Text("Editar Comentario") },
+            text = {
+                OutlinedTextField(
+                    value = editInput,
+                    onValueChange = { editInput = it },
+                    label = { Text("Nuevo Comentario") },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 50.dp, max = 150.dp),
+                    singleLine = false
+                )
+            },
+            confirmButton = {
+                Button(onClick = saveEdit, enabled = editInput.isNotBlank()) {
+                    Text("Guardar")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { commentToEdit = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -523,15 +606,15 @@ fun PlaceDetailScreen(
             // SCROLL VIEW PARA EL CONTENIDO PRINCIPAL Y COMENTARIOS
             Column(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
 
-                // --- SECCIÓN DE PUBLICACIÓN (AHORA CON IMAGEN REAL) ---
+                // --- SECCIÓN DE PUBLICACIÓN ---
                 AsyncImage(
-                    model = currentPost.imageUrl, // La URL de Firebase Storage
+                    model = currentPost.imageUrl,
                     contentDescription = currentPost.comment,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(250.dp)
                         .clip(RoundedCornerShape(12.dp)),
-                    contentScale = ContentScale.Crop // Escala para cubrir el área
+                    contentScale = ContentScale.Crop
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -540,9 +623,32 @@ fun PlaceDetailScreen(
                 Text("ID del Post: $postId", fontSize = 12.sp, color = Color.Gray)
 
                 Spacer(modifier = Modifier.height(8.dp))
-                // Placeholder de texto estático eliminado
 
-                Spacer(modifier = Modifier.height(8.dp))
+                // Botón para Borrar Publicación (Visible solo para el dueño)
+                if (currentUserId == currentPost.userId) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        // Lógica de borrado directa en el onClick
+                        onClick = {
+                            viewModel.deletePost(
+                                postId = currentPost.id,
+                                imageUrl = currentPost.imageUrl,
+                                postOwnerId = currentPost.userId,
+                                onPostDeleted = { onNavigateBack() } // ✅ Envuelto en lambda
+                            )
+                            Toast.makeText(context, "Eliminando publicación...", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "Borrar Publicación")
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Borrar Publicación Propia")
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+
                 // Mostrar el UID del dueño del post
                 Text("Subido por UID: ${currentPost.userId.take(6)}...", color = Color.Gray, fontSize = 14.sp)
 
@@ -578,8 +684,18 @@ fun PlaceDetailScreen(
                 if (comments.isEmpty()) {
                     Text("Sé el primero en comentar.", color = Color.Gray, fontSize = 14.sp)
                 } else {
+                    // Pasar las funciones de edición y borrado al CommentItem
                     comments.forEach { comment ->
-                        CommentItem(comment)
+                        CommentItem(
+                            comment = comment,
+                            currentUserId = currentUserId,
+                            onDelete = { commentId -> viewModel.deleteComment(commentId) },
+                            onEdit = { editedComment ->
+                                // ✅ Cambiamos el nombre del parámetro para evitar conflicto
+                                commentToEdit = editedComment
+                                editInput = editedComment.text
+                            }
+                        )
                     }
                 }
             }
@@ -612,41 +728,117 @@ fun PlaceDetailScreen(
     }
 }
 
-// NUEVA FUNCIÓN COMPOSABLE: Estructura de un solo comentario
+
+// NUEVA FUNCIÓN COMPOSABLE: Estructura de un solo comentario (MODIFICADA con opciones de edición/borrado)
 @Composable
-fun CommentItem(comment: Comment) {
+fun CommentItem(
+    comment: Comment,
+    currentUserId: String?,
+    onDelete: (String) -> Unit,
+    onEdit: (Comment) -> Unit
+) {
+    val isOwner = comment.userId == currentUserId
+    val showMenu = remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
-            Text("@${comment.username}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(comment.text, fontSize = 16.sp)
-            // Opcional: mostrar la hora
-            // Text(formatTimestamp(comment.timestamp), color = Color.Gray, fontSize = 10.sp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("@${comment.username}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(comment.text, fontSize = 16.sp)
+            }
+
+            if (isOwner) {
+                Box {
+                    IconButton(onClick = { showMenu.value = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "Opciones de Comentario")
+                    }
+                    DropdownMenu(
+                        expanded = showMenu.value,
+                        onDismissRequest = { showMenu.value = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Editar") },
+                            onClick = {
+                                onEdit(comment)
+                                showMenu.value = false
+                            },
+                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Borrar") },
+                            onClick = {
+                                onDelete(comment.id)
+                                showMenu.value = false
+                            },
+                            leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red) }
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
 // -----------------------
-// 5. PANTALLA DE PERFIL (MODIFICADA: Ahora muestra la imagen de la publicación en la cuadrícula)
+// 5. PANTALLA DE PERFIL (MODIFICADA: AÑADE LÓGICA PARA BORRAR POSTS)
 // -----------------------
 @Composable
 fun ProfileScreen(
-    // AÑADIR VIEWMODEL PARA DATOS DINÁMICOS
     viewModel: ProfileViewModel = viewModel(),
     onLogout: () -> Unit
 ) {
+    val context = LocalContext.current
     // Recolectar datos del ViewModel en tiempo real
     val userProfile by viewModel.userProfile.collectAsState()
     val userPosts by viewModel.userPosts.collectAsState()
 
+    // Estado para el diálogo de confirmación de borrado
+    var postToDelete by remember { mutableStateOf<Post?>(null) }
+    val showDeleteDialog = postToDelete != null
+
     // Manejar el cierre de sesión dentro del ViewModel
     val handleLogout = {
         viewModel.signOut(onLogout)
+    }
+
+    // Diálogo de Confirmación de Borrado de Post
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { postToDelete = null },
+            title = { Text("Confirmar Borrado") },
+            text = { Text("¿Estás seguro de que quieres eliminar esta publicación permanentemente? Esto no se puede deshacer.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        postToDelete?.let { post ->
+                            viewModel.deletePost(post)
+                            Toast.makeText(context, "Eliminando publicación...", Toast.LENGTH_SHORT).show()
+                        }
+                        postToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) {
+                    Text("Eliminar")
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { postToDelete = null }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 
     Column(
@@ -700,6 +892,12 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Muestra mensaje de ayuda para borrar
+        if (userPosts.isNotEmpty()) {
+            Text("Mantén presionado para borrar una publicación.", fontSize = 12.sp, color = Color.Gray)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
         // Grid de publicaciones (se adapta al número real de posts)
         val postCount = userPosts.size
 
@@ -711,16 +909,23 @@ fun ProfileScreen(
                 modifier = Modifier.weight(1f)
             ) {
                 items(postCount) { index ->
-                    // Muestra la imagen real de la publicación
+                    val post = userPosts[index]
+                    // Implementar long-press para borrar
                     Box(
                         modifier = Modifier
                             .aspectRatio(1f)
+                            .combinedClickable(
+                                onClick = { /* Podría navegar a detalle si se quisiera */ },
+                                onLongClick = {
+                                    postToDelete = post
+                                }
+                            )
                             .background(Color.LightGray, RoundedCornerShape(4.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         AsyncImage(
-                            model = userPosts[index].imageUrl,
-                            contentDescription = userPosts[index].comment,
+                            model = post.imageUrl,
+                            contentDescription = post.comment,
                             modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
@@ -760,7 +965,7 @@ fun StatItem(count: String, label: String) {
 }
 
 // -----------------------
-// 6. PANTALLA DETALLE NFC (NUEVA)
+// 6. PANTALLA DETALLE NFC (MODIFICADA)
 // -----------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -812,13 +1017,6 @@ fun NfcDetailScreen(
                     Text(tagData, color = Color.Black, fontSize = 14.sp)
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                "Esta funcionalidad permite a los estudiantes obtener información sobre laboratorios, salones o puntos de interés al acercar su dispositivo a un tag NFC.",
-                textAlign = TextAlign.Center,
-                color = Color.Gray,
-                fontSize = 12.sp
-            )
         }
     }
 }
