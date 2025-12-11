@@ -1,5 +1,6 @@
 package com.example.maping.screens
 
+
 import android.annotation.SuppressLint
 import android.Manifest
 import android.app.Activity
@@ -53,6 +54,13 @@ import com.example.maping.viewmodel.PostUploadState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import android.widget.Toast // necesario para mostrar el mensaje de exito
 import com.example.maping.viewmodel.ProfileViewModel
+import com.example.maping.viewmodel.DetailViewModel // NUEVA LÍNEA
+import com.google.firebase.auth.ktx.auth // NUEVA LÍNEA
+import com.google.firebase.ktx.Firebase // NUEVA LÍNEA
+import com.example.maping.model.Comment
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardOptions
 
 // -----------------------
 // 1. PANTALLA DE INICIO DE SESIÓN
@@ -428,15 +436,45 @@ fun UploadPostScreen(
 
 
 // -----------------------
-// 4. PANTALLA DETALLE DEL LUGAR
+// 4. PANTALLA DETALLE DEL LUGAR (MODIFICADA: AHORA DINÁMICA CON LIKES Y COMENTARIOS)
 // -----------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PlaceDetailScreen(postId: String, onNavigateBack: () -> Unit) {
+fun PlaceDetailScreen(
+    postId: String,
+    onNavigateBack: () -> Unit,
+    viewModel: DetailViewModel = viewModel() // INYECTAR VIEWMODEL
+) {
+    // Estados de datos
+    val post by viewModel.post.collectAsState()
+    val comments by viewModel.comments.collectAsState() // NUEVO: Estado de comentarios
+
+    // Estado de la UI
+    var commentInput by remember { mutableStateOf("") } // Estado del campo de comentario
+    val currentUserId = remember { Firebase.auth.currentUser?.uid }
+
+    // Cargar datos al iniciar
+    LaunchedEffect(postId) {
+        viewModel.fetchPostDetail(postId)
+    }
+
+    // Determinar el estado del like
+    val isLiked = remember(post, currentUserId) {
+        post?.likedBy?.contains(currentUserId) == true
+    }
+
+    // Lógica para enviar comentario
+    val sendComment = {
+        if (commentInput.isNotBlank()) {
+            viewModel.addComment(postId, commentInput.trim())
+            commentInput = "" // Limpiar el campo
+        }
+    }
+
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Detalle", color = Color.White) },
+                title = { Text(post?.comment?.take(20) ?: "Cargando...", color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
@@ -446,43 +484,130 @@ fun PlaceDetailScreen(postId: String, onNavigateBack: () -> Unit) {
             )
         }
     ) { padding ->
-        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+        // Si el post es nulo, mostrar un indicador de carga
+        if (post == null) {
+            Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = InstitutionalGreen)
+            }
+            return@Scaffold
+        }
 
-            Box(
+        val currentPost = post!!
+
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+
+            // SCROLL VIEW PARA EL CONTENIDO PRINCIPAL Y COMENTARIOS
+            Column(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
+
+                // --- SECCIÓN DE PUBLICACIÓN ---
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(250.dp)
+                        .background(Color.LightGray, RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Placeholder visual (sustituir con librería de imágenes en un proyecto real)
+                    Text("Post: ${currentPost.comment.take(15)}...", color = Color.Gray)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(currentPost.comment, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+
+                Text("ID del Post: $postId", fontSize = 12.sp, color = Color.Gray)
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Esta muy bien equipado, se encuentra entre el edificio N y L, en planta baja.", fontSize = 16.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                // Mostrar el UID del dueño del post
+                Text("Subido por UID: ${currentPost.userId.take(6)}...", color = Color.Gray, fontSize = 14.sp)
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // BOTÓN LIKES DINÁMICO
+                Button(
+                    onClick = {
+                        if (currentUserId != null) {
+                            viewModel.toggleLike(currentPost.id, isLiked)
+                        }
+                    },
+                    colors = if (isLiked) ButtonDefaults.buttonColors(containerColor = Color.Red) else ButtonDefaults.buttonColors(containerColor = Color.LightGray),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = null,
+                        tint = if (isLiked) Color.White else Color.Black
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Me gusta (${currentPost.likeCount})",
+                        color = if (isLiked) Color.White else Color.Black
+                    )
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // --- SECCIÓN DE COMENTARIOS ---
+                Text("Comentarios (${comments.size})", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (comments.isEmpty()) {
+                    Text("Sé el primero en comentar.", color = Color.Gray, fontSize = 14.sp)
+                } else {
+                    comments.forEach { comment ->
+                        CommentItem(comment)
+                    }
+                }
+            }
+
+            // --- CAJA DE COMENTARIOS (PARTE FIJA INFERIOR) ---
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(250.dp)
-                    .background(Color.LightGray, RoundedCornerShape(12.dp))
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Laboratorio de robotica", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-
-            // Mostramos el ID real para verificar que la navegación funciona
-            Text("ID del Post: $postId", fontSize = 12.sp, color = Color.Gray)
-
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Esta muy bien equipado, se encuentra entre el edificio N y L, en planta baja.", fontSize = 16.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Subido por @user123", color = Color.Gray, fontSize = 14.sp)
-
-            Spacer(modifier = Modifier.height(24.dp))
-            OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.FavoriteBorder, contentDescription = null)
+                    .padding(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = commentInput,
+                    onValueChange = { commentInput = it },
+                    label = { Text("Añadir comentario...") },
+                    modifier = Modifier.weight(1f).heightIn(min = 50.dp, max = 150.dp),
+                    singleLine = false,
+                    // Con las importaciones añadidas, la línea debe ser:
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
+                )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Me gusta", color = Color.Black)
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(onClick = {}, modifier = Modifier.fillMaxWidth()) {
-                Text("Comentar", color = Color.Black)
+                Button(
+                    onClick = sendComment,
+                    enabled = commentInput.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(containerColor = InstitutionalGreen)
+                ) {
+                    Icon(Icons.Default.Send, contentDescription = "Enviar")
+                }
             }
         }
     }
 }
 
-// -----------------------
-// 5. PANTALLA DE PERFIL
-// -----------------------
+// NUEVA FUNCIÓN COMPOSABLE: Estructura de un solo comentario
+@Composable
+fun CommentItem(comment: Comment) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text("@${comment.username}", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(comment.text, fontSize = 16.sp)
+            // Opcional: mostrar la hora
+            // Text(formatTimestamp(comment.timestamp), color = Color.Gray, fontSize = 10.sp)
+        }
+    }
+}
+
 // -----------------------
 // 5. PANTALLA DE PERFIL (MODIFICADA: AHORA DINÁMICA)
 // -----------------------

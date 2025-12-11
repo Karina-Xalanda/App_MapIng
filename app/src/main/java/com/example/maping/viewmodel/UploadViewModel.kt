@@ -5,9 +5,9 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.maping.model.Post // importamos el modelo Post
-//import com.google.firebase.Firebase
 import com.google.firebase.ktx.Firebase
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.FieldValue // IMPORTAR ESTA LÍNEA PARA EL INCREMENTO
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.storage.ktx.storage
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,7 +38,7 @@ class UploadViewModel : ViewModel() {
             }
 
             try {
-                // Subir Imagen a Storage ---
+                // 1. Subir Imagen a Storage ---
                 val fileName = "posts/${currentUserId}_${UUID.randomUUID()}.jpg"
                 val photoRef = storage.reference.child(fileName)
 
@@ -48,8 +48,8 @@ class UploadViewModel : ViewModel() {
                 // obtener la URL publica para Firestore
                 val imageUrl = photoRef.downloadUrl.await().toString()
 
-                // guardar Metadatos en Firestore ---
-                _postState.value = PostUploadState.Loading("Guardando ubicacion...")
+                // 2. guardar Metadatos en Firestore ---
+                _postState.value = PostUploadState.Loading("Guardando ubicación...")
                 val newPost = Post(
                     userId = currentUserId,
                     imageUrl = imageUrl,
@@ -63,6 +63,13 @@ class UploadViewModel : ViewModel() {
                 firestore.collection("posts")
                     .add(newPost)
                     .await()
+
+                // 3. ACTUALIZAR CONTADOR DEL USUARIO (NUEVA LÓGICA) ---
+                _postState.value = PostUploadState.Loading("Actualizando perfil...")
+                val userRef = firestore.collection("users").document(currentUserId)
+                // Usamos FieldValue.increment(1) para aumentar el contador de forma segura
+                userRef.update("postCount", FieldValue.increment(1)).await()
+                // -----------------------------------------------------
 
                 // exito ---
                 _postState.value = PostUploadState.Success
