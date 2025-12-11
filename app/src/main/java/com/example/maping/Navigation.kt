@@ -5,7 +5,7 @@ sealed class AppScreen(val route: String) {
     object Map : AppScreen("map")
     object Upload : AppScreen("upload")
     object Profile : AppScreen("profile")
-    object FindFriends : AppScreen("find_friends") // <-- ¡NUEVA RUTA!
+    object FindFriends : AppScreen("find_friends") // <-- ¡NUEVA RUTA AÑADIDA!
 
 
     object Detail : AppScreen("detail/{postId}") {
