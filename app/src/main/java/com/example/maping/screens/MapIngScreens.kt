@@ -52,6 +52,7 @@ import com.example.maping.viewmodel.UploadViewModel
 import com.example.maping.viewmodel.PostUploadState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import android.widget.Toast // necesario para mostrar el mensaje de exito
+import com.example.maping.viewmodel.ProfileViewModel
 
 // -----------------------
 // 1. PANTALLA DE INICIO DE SESIÓN
@@ -482,10 +483,24 @@ fun PlaceDetailScreen(postId: String, onNavigateBack: () -> Unit) {
 // -----------------------
 // 5. PANTALLA DE PERFIL
 // -----------------------
+// -----------------------
+// 5. PANTALLA DE PERFIL (MODIFICADA: AHORA DINÁMICA)
+// -----------------------
 @Composable
 fun ProfileScreen(
+    // AÑADIR VIEWMODEL PARA DATOS DINÁMICOS
+    viewModel: ProfileViewModel = viewModel(),
     onLogout: () -> Unit
 ) {
+    // Recolectar datos del ViewModel en tiempo real
+    val userProfile by viewModel.userProfile.collectAsState()
+    val userPosts by viewModel.userPosts.collectAsState()
+
+    // Manejar el cierre de sesión dentro del ViewModel
+    val handleLogout = {
+        viewModel.signOut(onLogout)
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -493,43 +508,90 @@ fun ProfileScreen(
         Text("Perfil", fontSize = 22.sp, color = InstitutionalGreen, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(24.dp))
 
-        Box(
-            modifier = Modifier.size(100.dp).background(Color.LightGray, CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(60.dp), tint = Color.White)
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text("@usuario_dev", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        // Si el perfil no se ha cargado, mostrar un loading o un placeholder simple.
+        userProfile?.let { user ->
+            // Contenedor de la foto de perfil
+            Box(
+                modifier = Modifier.size(100.dp).background(Color.LightGray, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                // NOTA: Para mostrar la imagen real de Google (user.profileImageUrl) se necesita
+                // una librería de carga de imágenes (como Coil o Glide). Por ahora, usamos un icono.
+                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(60.dp), tint = Color.White)
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            StatItem("6", "Publicaciones")
-            StatItem("48", "Likes")
-            StatItem("12", "Visitados")
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            modifier = Modifier.weight(1f)
-        ) {
-            items(9) {
-                Box(modifier = Modifier.aspectRatio(1f).background(Color.LightGray, RoundedCornerShape(4.dp)))
+                // Muestra un indicador si la URL existe, aunque no carguemos la imagen
+                if (user.profileImageUrl.isNotEmpty()) {
+                    Text("📷", modifier = Modifier.align(Alignment.BottomEnd).clip(CircleShape).background(InstitutionalGreen).padding(4.dp))
+                }
             }
+            Spacer(modifier = Modifier.height(8.dp))
+            // Nombre de usuario dinámico
+            Text("@${user.username}", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Stats dinámicos (usando los contadores del modelo User)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                StatItem(user.postCount.toString(), "Publicaciones")
+                StatItem(user.likeCount.toString(), "Likes")
+                StatItem(user.visitedCount.toString(), "Visitados")
+            }
+        } ?: run {
+            // Placeholder mientras carga o si hay un error
+            CircularProgressIndicator(color = InstitutionalGreen)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Cargando perfil...")
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // Grid de publicaciones (se adapta al número real de posts)
+        val postCount = userPosts.size
+
+        if (postCount > 0) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                items(postCount) { index ->
+                    // Las cajas ahora representan el número real de publicaciones.
+                    Box(
+                        modifier = Modifier
+                            .aspectRatio(1f)
+                            .background(Color.LightGray, RoundedCornerShape(4.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Muestra el comentario como placeholder del contenido
+                        Text(
+                            userPosts[index].comment.take(15) + "...", // Snippet del comentario
+                            fontSize = 10.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(4.dp)
+                        )
+                    }
+                }
+            }
+        } else if (userProfile != null) {
+            // Mensaje si no hay publicaciones y el perfil ya cargó
+            Text(
+                "¡Aún no tienes publicaciones!",
+                color = Color.Gray,
+                fontSize = 16.sp,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(top = 48.dp)
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
         Button(
-            onClick = onLogout,
+            onClick = handleLogout,
             colors = ButtonDefaults.buttonColors(containerColor = InstitutionalGreen),
             modifier = Modifier.fillMaxWidth()
         ) {
