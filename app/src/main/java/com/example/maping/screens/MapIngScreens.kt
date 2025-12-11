@@ -1,6 +1,6 @@
 package com.example.maping.screens
 
-import androidx.compose.ui.text.input.KeyboardOptions
+
 import android.annotation.SuppressLint
 import android.Manifest
 import android.app.Activity
@@ -51,18 +51,17 @@ import androidx.compose.runtime.collectAsState
 // otros imports
 import com.example.maping.viewmodel.UploadViewModel
 import com.example.maping.viewmodel.PostUploadState
-import androidx.lifecycle.viewmodel.compose.viewModel
 import android.widget.Toast // necesario para mostrar el mensaje de exito
 import com.example.maping.viewmodel.ProfileViewModel
-import com.example.maping.viewmodel.DetailViewModel // NUEVA LÍNEA
-import com.google.firebase.auth.ktx.auth // NUEVA LÍNEA
-import com.google.firebase.ktx.Firebase // NUEVA LÍNEA
-import com.example.maping.model.Comment
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.ui.text.input.ImeAction
-
-import coil.compose.AsyncImage // NUEVA LÍNEA: Componente de Coil
-import androidx.compose.ui.layout.ContentScale // NUEVA LÍNEA: Para escalar la imagen
+import com.example.maping.viewmodel.DetailViewModel
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
+import com.example.maping.model.Comment // FIX: Importación de modelo de comentario
+import androidx.compose.foundation.layout.heightIn // FIX: Importación de Compose
+import androidx.compose.ui.text.input.ImeAction // FIX: Importación de Compose
+import androidx.compose.foundation.text.KeyboardOptions
+import coil.compose.AsyncImage // NUEVA LÍNEA: Coil para carga de imágenes
+import androidx.compose.ui.layout.ContentScale // NUEVA LÍNEA: Para Coil
 
 // -----------------------
 // 1. PANTALLA DE INICIO DE SESIÓN
@@ -438,7 +437,7 @@ fun UploadPostScreen(
 
 
 // -----------------------
-// 4. PANTALLA DETALLE DEL LUGAR (MODIFICADA: AHORA DINÁMICA CON LIKES Y COMENTARIOS)
+// 4. PANTALLA DETALLE DEL LUGAR (MODIFICADA: AHORA DINÁMICA CON LIKES Y COMENTARIOS Y IMAGEN)
 // -----------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -501,17 +500,16 @@ fun PlaceDetailScreen(
             // SCROLL VIEW PARA EL CONTENIDO PRINCIPAL Y COMENTARIOS
             Column(modifier = Modifier.weight(1f).padding(horizontal = 16.dp)) {
 
-                // --- SECCIÓN DE PUBLICACIÓN ---
-                Box(
+                // --- SECCIÓN DE PUBLICACIÓN (AHORA CON IMAGEN REAL) ---
+                AsyncImage(
+                    model = currentPost.imageUrl, // La URL de Firebase Storage
+                    contentDescription = currentPost.comment,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(250.dp)
-                        .background(Color.LightGray, RoundedCornerShape(12.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Placeholder visual (sustituir con librería de imágenes en un proyecto real)
-                    Text("Post: ${currentPost.comment.take(15)}...", color = Color.Gray)
-                }
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop // Escala para cubrir el área
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(currentPost.comment, fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -575,7 +573,7 @@ fun PlaceDetailScreen(
                     label = { Text("Añadir comentario...") },
                     modifier = Modifier.weight(1f).heightIn(min = 50.dp, max = 150.dp),
                     singleLine = false,
-                    // Con las importaciones añadidas, la línea debe ser:
+                    // CORRECCIÓN: Uso de nombres cortos después de la importación
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -611,7 +609,7 @@ fun CommentItem(comment: Comment) {
 }
 
 // -----------------------
-// 5. PANTALLA DE PERFIL (MODIFICADA: AHORA DINÁMICA)
+// 5. PANTALLA DE PERFIL (MODIFICADA: AHORA DINÁMICA CON IMAGEN REAL)
 // -----------------------
 @Composable
 fun ProfileScreen(
@@ -637,18 +635,22 @@ fun ProfileScreen(
 
         // Si el perfil no se ha cargado, mostrar un loading o un placeholder simple.
         userProfile?.let { user ->
-            // Contenedor de la foto de perfil
+            // Contenedor de la foto de perfil (AHORA CON IMAGEN REAL DE COIL)
             Box(
-                modifier = Modifier.size(100.dp).background(Color.LightGray, CircleShape),
+                modifier = Modifier.size(100.dp).clip(CircleShape).background(Color.LightGray),
                 contentAlignment = Alignment.Center
             ) {
-                // NOTA: Para mostrar la imagen real de Google (user.profileImageUrl) se necesita
-                // una librería de carga de imágenes (como Coil o Glide). Por ahora, usamos un icono.
-                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(60.dp), tint = Color.White)
-
-                // Muestra un indicador si la URL existe, aunque no carguemos la imagen
+                // Usa AsyncImage si hay una URL de perfil
                 if (user.profileImageUrl.isNotEmpty()) {
-                    Text("📷", modifier = Modifier.align(Alignment.BottomEnd).clip(CircleShape).background(InstitutionalGreen).padding(4.dp))
+                    AsyncImage(
+                        model = user.profileImageUrl, // La URL de la foto de Google
+                        contentDescription = "Foto de Perfil",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    // Mantiene el icono si no hay URL de foto
+                    Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(60.dp), tint = Color.White)
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
