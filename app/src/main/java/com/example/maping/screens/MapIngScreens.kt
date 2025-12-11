@@ -330,7 +330,7 @@ fun MainMapScreen(
 }
 
 // -----------------------
-// 3. PANTALLA DE SUBIR PUBLICACIÓN (CON GPS)
+// 3. PANTALLA DE SUBIR PUBLICACIÓN (CON GPS) - MODIFICADA CON CÁMARA
 // -----------------------
 @Composable
 fun UploadPostScreen(
@@ -340,6 +340,9 @@ fun UploadPostScreen(
     val context = LocalContext.current
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var comment by remember { mutableStateOf("") }
+
+    // NUEVO: URI temporal para que la cámara guarde la foto
+    var cameraTempUri by remember { mutableStateOf<Uri?>(null) }
 
     // Observar el estado de subida
     val uploadState by viewModel.postState.collectAsState()
@@ -386,11 +389,34 @@ fun UploadPostScreen(
     }
     // Fin de la logica de ubicacion
 
+    // Función auxiliar para crear un URI temporal para la cámara (USA FILEPROVIDER)
+    val createTempUri: () -> Uri = {
+        val file = java.io.File(context.filesDir, "temp_photo_${System.currentTimeMillis()}.jpg")
+        // Se usa el nombre de FileProvider definido en el Manifest
+        androidx.core.content.FileProvider.getUriForFile(
+            context,
+            context.packageName + ".fileprovider",
+            file
+        )
+    }
+
+    // NUEVO: Launcher para Tomar Foto
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && cameraTempUri != null) {
+            imageUri = cameraTempUri // Si la foto se tomó con éxito, actualiza la URI principal
+        } else {
+            cameraTempUri = null // Limpiar si falló
+        }
+    }
+
 
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         imageUri = uri
+        cameraTempUri = null // Limpiar URI temporal si se usa galería
     }
 
     // EFECTO PARA MANEJAR EL ESTADO DE LA SUBIDA ---
@@ -444,15 +470,39 @@ fun UploadPostScreen(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
-        Button(
-            onClick = { galleryLauncher.launch("image/*") },
-            colors = ButtonDefaults.buttonColors(containerColor = InstitutionalGreen),
+
+        // MODIFICADO: Contenedor para ambos botones
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Icon(Icons.Default.CameraAlt, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Abrir Galería")
+            // Botón ABRIR CÁMARA (NUEVO)
+            Button(
+                onClick = {
+                    val uri = createTempUri()
+                    cameraTempUri = uri
+                    cameraLauncher.launch(uri)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = InstitutionalGreen),
+                enabled = !isLoading,
+                modifier = Modifier.weight(1f).padding(end = 4.dp)
+            ) {
+                Icon(Icons.Default.Camera, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Cámara")
+            }
+
+            // Botón ABRIR GALERÍA (Existente)
+            Button(
+                onClick = { galleryLauncher.launch("image/*") },
+                colors = ButtonDefaults.buttonColors(containerColor = InstitutionalGreen),
+                enabled = !isLoading,
+                modifier = Modifier.weight(1f).padding(start = 4.dp)
+            ) {
+                Icon(Icons.Default.Image, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Galería")
+            }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -510,7 +560,6 @@ fun UploadPostScreen(
         }
     }
 }
-
 
 // -----------------------
 // 4. PANTALLA DETALLE DEL LUGAR (CORREGIDA: Se mueve la lógica de borrado al onClick del botón)
@@ -1001,7 +1050,7 @@ fun StatItem(count: String, label: String) {
 }
 
 // -----------------------
-// 6. PANTALLA DETALLE NFC (MODIFICADA)
+// 6. PANTALLA DETALLE NFC (MODIFICADA: Simplificada)
 // -----------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1009,50 +1058,31 @@ fun NfcDetailScreen(
     tagData: String,
     onNavigateBack: () -> Unit
 ) {
-    Scaffold(
-        topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Información NFC", color = Color.White) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
-                    }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = InstitutionalGreen)
-            )
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+    // Scaffold y TopBar eliminados para solo mostrar el contenido
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center // Centrar el contenido
+    ) {
+        // Se deja solo el texto del NFC, sin encabezados ni iconos
+        Text(
+            text = tagData,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            color = Color.Black
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Botón de Salida
+        Button(
+            onClick = onNavigateBack,
+            colors = ButtonDefaults.buttonColors(containerColor = InstitutionalGreen)
         ) {
-            Icon(
-                Icons.Default.Nfc, // Icono NFC
-                contentDescription = "NFC Tag",
-                tint = InstitutionalGreen,
-                modifier = Modifier.size(96.dp)
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            Text(
-                "¡Tag NFC detectado!",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = InstitutionalGreen
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = InstitutionalGreen.copy(alpha = 0.1f))
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Contenido del Tag:", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(tagData, color = Color.Black, fontSize = 14.sp)
-                }
-            }
+            Text("Volver a Inicio")
         }
     }
 }
