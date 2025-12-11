@@ -1,6 +1,6 @@
 package com.example.maping.screens
 
-
+import androidx.compose.ui.text.input.KeyboardOptions
 import android.annotation.SuppressLint
 import android.Manifest
 import android.app.Activity
@@ -60,7 +60,9 @@ import com.google.firebase.ktx.Firebase // NUEVA LÍNEA
 import com.example.maping.model.Comment
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardOptions
+
+import coil.compose.AsyncImage // NUEVA LÍNEA: Componente de Coil
+import androidx.compose.ui.layout.ContentScale // NUEVA LÍNEA: Para escalar la imagen
 
 // -----------------------
 // 1. PANTALLA DE INICIO DE SESIÓN

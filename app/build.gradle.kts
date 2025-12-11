@@ -81,5 +81,6 @@ dependencies {
     implementation(libs.maps.compose)
     implementation(libs.play.services.maps)
 
+    implementation("io.coil-kt:coil-compose:2.6.0") // Añadir esta línea
 
 }
