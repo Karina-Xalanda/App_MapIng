@@ -24,8 +24,6 @@ import java.net.URLDecoder
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
-
-
 class MainActivity : ComponentActivity() {
 
     // Función auxiliar para extraer datos de texto NDEF del Intent
