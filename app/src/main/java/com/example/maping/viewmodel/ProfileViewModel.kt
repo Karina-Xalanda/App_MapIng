@@ -79,8 +79,7 @@ class ProfileViewModel : ViewModel() {
             }
     }
 
-    // ✅ ACTUALIZADA: La lógica de actualización de contadores ya es correcta en DetailViewModel,
-    // pero esta función la necesita para que la eliminación desde el perfil funcione.
+    // ✅ ACTUALIZADA: Borrar un post desde el perfil (maneja contadores)
     fun deletePost(post: Post) {
         viewModelScope.launch {
             try {
@@ -133,20 +132,19 @@ class ProfileViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                // Realiza una consulta para buscar usuarios por nombre de usuario (ignorando mayúsculas/minúsculas)
-                // Usamos whereGreaterThanOrEqualTo y whereLessThan para buscar prefijos (búsqueda aproximada)
+                // Realiza una consulta para buscar usuarios por nombre de usuario (búsqueda aproximada)
                 val endString = query + "\uf8ff" // truco para obtener todos los documentos que comienzan con 'query'
 
                 val snapshot = db.collection("users")
                     .whereGreaterThanOrEqualTo("username", query)
                     .whereLessThanOrEqualTo("username", endString)
-                    .limit(10) // Limitar resultados por eficiencia
+                    .limit(10)
                     .get()
                     .await()
 
                 val results = snapshot.documents.mapNotNull { doc ->
                     doc.toObject(User::class.java)
-                }.filter { it.uid != currentUserId } // Excluir al usuario actual
+                }.filter { it.uid != currentUserId }
 
                 _searchResults.value = results
                 Log.d("ProfileViewModel", "Búsqueda exitosa, ${results.size} resultados.")

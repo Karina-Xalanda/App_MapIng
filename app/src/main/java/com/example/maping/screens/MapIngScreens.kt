@@ -70,6 +70,9 @@ import androidx.compose.foundation.lazy.LazyColumn // <-- ¡NUEVO! Para LazyColu
 import androidx.compose.foundation.lazy.items // <-- ¡NUEVO! Para la función items(list)
 import com.example.maping.model.User
 
+import androidx.compose.foundation.lazy.LazyColumn // <-- NUEVO
+import androidx.compose.foundation.lazy.items // <-- NUEVO (Para usar items(list))
+
 // -----------------------
 // 1. PANTALLA DE INICIO DE SESIÓN
 // -----------------------
@@ -1045,8 +1048,6 @@ fun NfcDetailScreen(
     }
 }
 
-// ... (Al final de MapIngScreens.kt)
-
 // -----------------------
 // 7. PANTALLA DE BÚSQUEDA DE USUARIOS/AMIGOS
 // -----------------------
@@ -1103,7 +1104,7 @@ fun FindFriendScreen(
 
             if (searchText.length < 3) {
                 Text("Ingresa al menos 3 caracteres para buscar.", color = Color.Gray, modifier = Modifier.padding(8.dp))
-            } else if (searchResults.isEmpty()) {
+            } else if (searchResults.isEmpty() && searchText.length >= 3) {
                 Text("No se encontraron usuarios con ese nombre.", color = Color.Gray, modifier = Modifier.padding(8.dp))
             } else {
                 // Lista de Resultados
@@ -1111,8 +1112,8 @@ fun FindFriendScreen(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(searchResults.size) { index ->
-                        val user = searchResults[index]
+                    // Usamos items(list) para mayor simplicidad
+                    items(searchResults) { user ->
 
                         // Determinar si el usuario buscado ya es amigo del usuario actual
                         val isFriend = remember(currentUserProfile) {
