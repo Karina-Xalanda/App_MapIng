@@ -77,6 +77,9 @@ import androidx.compose.foundation.lazy.items // <-- NUEVO (Para usar items(list
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import com.example.maping.R
+// Necesario para PackageManager.PERMISSION_GRANTED
+import androidx.core.content.ContextCompat // Necesario para ContextCompat.checkSelfPermission
+import androidx.core.content.FileProvider // Necesario para FileProvider
 
 // -----------------------
 // 1. PANTALLA DE INICIO DE SESIÓN
@@ -330,7 +333,7 @@ fun MainMapScreen(
 }
 
 // -----------------------
-// 3. PANTALLA DE SUBIR PUBLICACIÓN (CON GPS) - MODIFICADA CON CÁMARA
+// 3. PANTALLA DE SUBIR PUBLICACIÓN (CON GPS Y CÁMARA) - CORREGIDA
 // -----------------------
 @Composable
 fun UploadPostScreen(
@@ -352,7 +355,63 @@ fun UploadPostScreen(
     var coordinates by remember { mutableStateOf<LatLng?>(null) }
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
-    // logica para obtener la ubicación
+    // ===========================================
+    // LÓGICA DE CÁMARA (INICIO) - ORDEN CORREGIDO
+    // ===========================================
+
+    // 1. Función auxiliar para crear un URI temporal (USA FILEPROVIDER)
+    val createTempUri: () -> Uri = {
+        val file = java.io.File(context.filesDir, "temp_photo_${System.currentTimeMillis()}.jpg")
+        androidx.core.content.FileProvider.getUriForFile(
+            context,
+            context.packageName + ".fileprovider",
+            file
+        )
+    }
+
+    // 2. Launcher para Tomar Foto
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && cameraTempUri != null) {
+            imageUri = cameraTempUri
+        } else {
+            cameraTempUri = null
+        }
+    }
+
+    // 3. Función auxiliar para ejecutar la cámara (utiliza cameraLauncher)
+    val launchCamera = { uri: Uri ->
+        cameraTempUri = uri
+        cameraLauncher.launch(uri)
+    }
+
+    // 4. Launcher para solicitar el permiso de la cámara
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            // Si el permiso es concedido, lanza la cámara
+            launchCamera(createTempUri())
+        } else {
+            // El usuario denegó el permiso
+            Toast.makeText(context, "Permiso de cámara denegado.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        imageUri = uri
+        cameraTempUri = null // Limpiar URI temporal si se usa galería
+    }
+
+    // ===========================================
+    // LÓGICA DE CÁMARA (FIN)
+    // ===========================================
+
+
+    // logica para obtener la ubicación (no se modifica)
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -378,7 +437,7 @@ fun UploadPostScreen(
         }
     }
 
-    // Pedir permiso al entrar
+    // Pedir permiso de ubicación al entrar
     LaunchedEffect(Unit) {
         locationPermissionLauncher.launch(
             arrayOf(
@@ -389,35 +448,6 @@ fun UploadPostScreen(
     }
     // Fin de la logica de ubicacion
 
-    // Función auxiliar para crear un URI temporal para la cámara (USA FILEPROVIDER)
-    val createTempUri: () -> Uri = {
-        val file = java.io.File(context.filesDir, "temp_photo_${System.currentTimeMillis()}.jpg")
-        // Se usa el nombre de FileProvider definido en el Manifest
-        androidx.core.content.FileProvider.getUriForFile(
-            context,
-            context.packageName + ".fileprovider",
-            file
-        )
-    }
-
-    // NUEVO: Launcher para Tomar Foto
-    val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicture()
-    ) { success ->
-        if (success && cameraTempUri != null) {
-            imageUri = cameraTempUri // Si la foto se tomó con éxito, actualiza la URI principal
-        } else {
-            cameraTempUri = null // Limpiar si falló
-        }
-    }
-
-
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        imageUri = uri
-        cameraTempUri = null // Limpiar URI temporal si se usa galería
-    }
 
     // EFECTO PARA MANEJAR EL ESTADO DE LA SUBIDA ---
     LaunchedEffect(uploadState) {
@@ -471,17 +501,26 @@ fun UploadPostScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // MODIFICADO: Contenedor para ambos botones
+        // Contenedor para ambos botones
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            // Botón ABRIR CÁMARA (NUEVO)
+            // Botón ABRIR CÁMARA (MODIFICADO para pedir permiso)
             Button(
                 onClick = {
-                    val uri = createTempUri()
-                    cameraTempUri = uri
-                    cameraLauncher.launch(uri)
+                    // Verificar y pedir el permiso antes de abrir la cámara
+                    if (ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        // Permiso ya concedido, abrir cámara directamente
+                        launchCamera(createTempUri())
+                    } else {
+                        // Pedir el permiso
+                        cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                    }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = InstitutionalGreen),
                 enabled = !isLoading,
