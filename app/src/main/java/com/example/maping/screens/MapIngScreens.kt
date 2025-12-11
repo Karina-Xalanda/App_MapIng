@@ -52,7 +52,7 @@ import androidx.compose.runtime.collectAsState
 // otros imports
 import com.example.maping.viewmodel.UploadViewModel
 import com.example.maping.viewmodel.PostUploadState
-import android.widget.Toast // necesario para mostrar el mensaje de exito2
+import android.widget.Toast
 import com.example.maping.viewmodel.ProfileViewModel
 import com.example.maping.viewmodel.DetailViewModel
 import com.google.firebase.auth.ktx.auth
@@ -66,26 +66,27 @@ import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.foundation.lazy.LazyColumn // <-- ¡NUEVO! Para LazyColumn
-import androidx.compose.foundation.lazy.items // <-- ¡NUEVO! Para la función items(list)
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import com.example.maping.model.User
 
-import androidx.compose.foundation.lazy.LazyColumn // <-- NUEVO
-import androidx.compose.foundation.lazy.items // <-- NUEVO (Para usar items(list))
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 
 //import para la img del logo
 import androidx.compose.foundation.Image
 import androidx.compose.ui.res.painterResource
 import com.example.maping.R
-// Necesario para PackageManager.PERMISSION_GRANTED
-import androidx.core.content.ContextCompat // Necesario para ContextCompat.checkSelfPermission
-import androidx.core.content.FileProvider // Necesario para FileProvider
+
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.rememberCameraPositionState
 import androidx.compose.ui.text.font.FontStyle
+
 // -----------------------
-// 1. PANTALLA DE INICIO DE SESIÓN
+// 1. PANTALLA DE INICIO DE SESION
 // -----------------------
 @Composable
 fun LoginScreen(
@@ -95,7 +96,7 @@ fun LoginScreen(
     val context = LocalContext.current
     val userState by viewModel.userState.collectAsState()
 
-    // Estados mutables para capturar la entrada del usuario
+    // Estados para capturar la entrada del usuario
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
@@ -118,10 +119,9 @@ fun LoginScreen(
         }
     }
 
-    // Efecto de navegación si el login es exitoso
+    //  navegacion si el login es exitoso
     LaunchedEffect(userState) {
         if (userState is UserState.Success) {
-            // Limpiamos los campos y el estado de registro
             email = ""
             password = ""
             username = ""
@@ -131,7 +131,7 @@ fun LoginScreen(
         }
     }
 
-    // Determinar si la UI está bloqueada (solo si está cargando)
+    // Determina si la UI está bloqueada
     val isUiEnabled = userState != UserState.Loading
 
     Column(
@@ -149,9 +149,9 @@ fun LoginScreen(
             contentAlignment = Alignment.Center
         ) {
             Image(
-                painter = painterResource(id = R.drawable.logo_maping), // Pon aquí el nombre exacto de tu archivo
+                painter = painterResource(id = R.drawable.logo_maping),
                 contentDescription = "Logo de MapIng",
-                modifier = Modifier.size(80.dp) // Ajusta el tamaño de la imagen si es necesario
+                modifier = Modifier.size(80.dp)
             )
         }
 
@@ -160,7 +160,8 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Campo de nombre de usuario (Solo para registro)
+        //CAMPOS para registro de cuenta
+        // nombre de usuario
         if (isRegistering) {
             OutlinedTextField(
                 value = username,
@@ -173,7 +174,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        // Campo de Correo Electrónico
+        //  Correo Electrónico
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
@@ -183,7 +184,7 @@ fun LoginScreen(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
         Spacer(modifier = Modifier.height(8.dp))
-        // Campo de Contraseña
+        //  Contraseña
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
@@ -196,7 +197,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Botón principal (Login o Registrar)
+        // Boton principal (Login o Registrar)
         Button(
             onClick = {
                 if (isRegistering) {
@@ -217,7 +218,7 @@ fun LoginScreen(
         OutlinedButton(
             onClick = {
                 isRegistering = !isRegistering
-                viewModel.resetState() // Limpiamos el estado al cambiar de modo
+                viewModel.resetState()
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = isUiEnabled
@@ -230,7 +231,7 @@ fun LoginScreen(
         // Separador visual
         Text("o", color = Color.Gray, modifier = Modifier.padding(vertical = 8.dp))
 
-        // Botón Google Real
+        // Boton Google Real
         OutlinedButton(
             onClick = {
                 if (isUiEnabled) {
@@ -244,7 +245,6 @@ fun LoginScreen(
             Spacer(modifier = Modifier.width(8.dp))
             Text("Continuar con Google", color = Color.Black)
 
-            // Si está cargando, muestra un indicador
             if (userState is UserState.Loading) {
                 Spacer(modifier = Modifier.width(8.dp))
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = InstitutionalGreen)
@@ -264,7 +264,7 @@ fun LoginScreen(
 }
 
 // -----------------------
-// 2. PANTALLA DEL MAPA PRINCIPAL (MODIFICADA)
+// 2. PANTALLA DEL MAPA PRINCIPAL
 // -----------------------
 @Composable
 fun MainMapScreen(
@@ -296,7 +296,7 @@ fun MainMapScreen(
         floatingActionButtonPosition = FabPosition.Center
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
-            // Header
+
             Row(
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -335,9 +335,9 @@ fun MainMapScreen(
     }
 }
 
-// -----------------------
-// 3. PANTALLA DE SUBIR PUBLICACIÓN (CON GPS Y CÁMARA) - CORREGIDA
-// -----------------------
+// ----------------------------------
+// 3. PANTALLA DE SUBIR PUBLICACION
+// ----------------------------------
 @Composable
 fun UploadPostScreen(
     viewModel: UploadViewModel = viewModel(),
@@ -347,10 +347,10 @@ fun UploadPostScreen(
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var comment by remember { mutableStateOf("") }
 
-    // NUEVO: URI temporal para que la cámara guarde la foto
+   //URI para que la cámara guarde la foto
     var cameraTempUri by remember { mutableStateOf<Uri?>(null) }
 
-    // Observar el estado de subida
+    //  estado de subida
     val uploadState by viewModel.postState.collectAsState()
 
     // Variables para el GPS
@@ -358,11 +358,8 @@ fun UploadPostScreen(
     var coordinates by remember { mutableStateOf<LatLng?>(null) }
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
-    // ===========================================
-    // LÓGICA DE CÁMARA (INICIO) - ORDEN CORREGIDO
-    // ===========================================
-
-    // 1. Función auxiliar para crear un URI temporal (USA FILEPROVIDER)
+    // LOGICA DE CAMARA
+    // 1. Funcion para crear la URI temporal
     val createTempUri: () -> Uri = {
         val file = java.io.File(context.filesDir, "temp_photo_${System.currentTimeMillis()}.jpg")
         androidx.core.content.FileProvider.getUriForFile(
@@ -372,7 +369,7 @@ fun UploadPostScreen(
         )
     }
 
-    // 2. Launcher para Tomar Foto
+    // launcher para Tomar Foto
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
@@ -383,21 +380,19 @@ fun UploadPostScreen(
         }
     }
 
-    // 3. Función auxiliar para ejecutar la cámara (utiliza cameraLauncher)
+    //  Funcion para ejecutar la camara
     val launchCamera = { uri: Uri ->
         cameraTempUri = uri
         cameraLauncher.launch(uri)
     }
 
-    // 4. Launcher para solicitar el permiso de la cámara
+    // launcher para solicitar el permiso de la cámara
     val cameraPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            // Si el permiso es concedido, lanza la cámara
             launchCamera(createTempUri())
         } else {
-            // El usuario denegó el permiso
             Toast.makeText(context, "Permiso de cámara denegado.", Toast.LENGTH_SHORT).show()
         }
     }
@@ -406,15 +401,11 @@ fun UploadPostScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         imageUri = uri
-        cameraTempUri = null // Limpiar URI temporal si se usa galería
+        cameraTempUri = null
     }
 
-    // ===========================================
-    // LÓGICA DE CÁMARA (FIN)
-    // ===========================================
 
-
-    // logica para obtener la ubicación (no se modifica)
+    // obtener la ubicación
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -449,7 +440,7 @@ fun UploadPostScreen(
             )
         )
     }
-    // Fin de la logica de ubicacion
+
 
 
     // EFECTO PARA MANEJAR EL ESTADO DE LA SUBIDA ---
@@ -509,7 +500,7 @@ fun UploadPostScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            // Botón ABRIR CÁMARA (MODIFICADO para pedir permiso)
+            // Botón ABRIR CÁMARA
             Button(
                 onClick = {
                     // Verificar y pedir el permiso antes de abrir la cámara
@@ -518,10 +509,8 @@ fun UploadPostScreen(
                             Manifest.permission.CAMERA
                         ) == PackageManager.PERMISSION_GRANTED
                     ) {
-                        // Permiso ya concedido, abrir cámara directamente
                         launchCamera(createTempUri())
                     } else {
-                        // Pedir el permiso
                         cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
                     }
                 },
@@ -534,7 +523,7 @@ fun UploadPostScreen(
                 Text("Cámara")
             }
 
-            // Botón ABRIR GALERÍA (Existente)
+            // Botón ABRIR GALERÍA
             Button(
                 onClick = { galleryLauncher.launch("image/*") },
                 colors = ButtonDefaults.buttonColors(containerColor = InstitutionalGreen),
@@ -604,7 +593,7 @@ fun UploadPostScreen(
 }
 
 // -----------------------
-// 4. PANTALLA DETALLE DEL LUGAR (CORREGIDA: Se mueve la lógica de borrado al onClick del botón)
+// 4. PANTALLA DETALLE DEL LUGAR
 // -----------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -623,7 +612,6 @@ fun PlaceDetailScreen(
     val currentUserId = remember { Firebase.auth.currentUser?.uid }
 
     // Estados para Edición de Comentario
-    // Estas variables están correctamente definidas en el scope de la función principal
     var commentToEdit by remember { mutableStateOf<Comment?>(null) }
     var editInput by remember { mutableStateOf("") }
     val showEditDialog = commentToEdit != null
@@ -638,7 +626,7 @@ fun PlaceDetailScreen(
         post?.likedBy?.contains(currentUserId) == true
     }
 
-    // Lógica para enviar comentario
+    //  enviar comentario
     val sendComment = {
         if (commentInput.isNotBlank()) {
             viewModel.addComment(postId, commentInput.trim())
@@ -646,7 +634,7 @@ fun PlaceDetailScreen(
         }
     }
 
-    // Lógica para guardar edición de comentario
+    //  guardar edición de comentario
     val saveEdit = {
         commentToEdit?.let { comment ->
             if (editInput.isNotBlank() && editInput != comment.text) {
@@ -657,7 +645,7 @@ fun PlaceDetailScreen(
         }
     }
 
-    // Diálogo de Edición de Comentario
+    // dialogo de edicion de Comentario
     if (showEditDialog) {
         AlertDialog(
             onDismissRequest = { commentToEdit = null },
@@ -674,8 +662,8 @@ fun PlaceDetailScreen(
             confirmButton = {
                 Button(
                     onClick = {
-                        saveEdit() // Llama a la lógica de guardado
-                        Unit // <--- 🛠️ FIX APLICADO AQUÍ (Línea 569)
+                        saveEdit()
+                        Unit
                     },
                     enabled = editInput.isNotBlank()
                 ) {
@@ -703,7 +691,6 @@ fun PlaceDetailScreen(
             )
         }
     ) { padding ->
-        // Si el post es nulo, mostrar un indicador de carga
         if (post == null) {
             Box(modifier = Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = InstitutionalGreen)
@@ -736,17 +723,16 @@ fun PlaceDetailScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Botón para Borrar Publicación (Visible solo para el dueño)
+                // Botón para Borrar Publicación dueno del perfil
                 if (currentUserId == currentPost.userId) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Button(
-                        // Lógica de borrado directa en el onClick
                         onClick = {
                             viewModel.deletePost(
                                 postId = currentPost.id,
                                 imageUrl = currentPost.imageUrl,
                                 postOwnerId = currentPost.userId,
-                                onPostDeleted = { onNavigateBack() } // ✅ Envuelto en lambda
+                                onPostDeleted = { onNavigateBack() }
                             )
                             Toast.makeText(context, "Eliminando publicación...", Toast.LENGTH_SHORT).show()
                         },
@@ -761,12 +747,12 @@ fun PlaceDetailScreen(
                 }
 
 
-                // Mostrar el UID del dueño del post
+                // UID del dueño del post
                 Text("Subido por UID: ${currentPost.userId.take(6)}...", color = Color.Gray, fontSize = 14.sp)
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // BOTÓN LIKES DINÁMICO
+                // BOTÓN LIKES
                 Button(
                     onClick = {
                         if (currentUserId != null) {
@@ -796,14 +782,12 @@ fun PlaceDetailScreen(
                 if (comments.isEmpty()) {
                     Text("Sé el primero en comentar.", color = Color.Gray, fontSize = 14.sp)
                 } else {
-                    // Pasar las funciones de edición y borrado al CommentItem
                     comments.forEach { comment ->
                         CommentItem(
                             comment = comment,
                             currentUserId = currentUserId,
                             onDelete = { commentId -> viewModel.deleteComment(commentId) },
                             onEdit = { editedComment ->
-                                // ✅ Cambiamos el nombre del parámetro para evitar conflicto
                                 commentToEdit = editedComment
                                 editInput = editedComment.text
                             }
@@ -812,7 +796,7 @@ fun PlaceDetailScreen(
                 }
             }
 
-            // --- CAJA DE COMENTARIOS (PARTE FIJA INFERIOR) ---
+            //  CAJA DE COMENTARIOS ---
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -841,7 +825,7 @@ fun PlaceDetailScreen(
 }
 
 
-// NUEVA FUNCIÓN COMPOSABLE: Estructura de un solo comentario (MODIFICADA con opciones de edición/borrado)
+// Estructura de un solo comentario, opciones de edición/borrado
 @Composable
 fun CommentItem(
     comment: Comment,
@@ -885,7 +869,6 @@ fun CommentItem(
                             onClick = {
                                 onEdit(comment)
                                 showMenu.value = false
-                                Unit // <--- 🛠️ CORRECCIÓN APLICADA AQUÍ
                             },
                             leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
                         )
@@ -894,7 +877,6 @@ fun CommentItem(
                             onClick = {
                                 onDelete(comment.id)
                                 showMenu.value = false
-                                Unit // <--- 🛠️ CORRECCIÓN APLICADA AQUÍ
                             },
                             leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red) }
                         )
@@ -906,29 +888,29 @@ fun CommentItem(
 }
 
 // -----------------------
-// 5. PANTALLA DE PERFIL (MODIFICADA: AÑADE LÓGICA PARA BORRAR POSTS, AMIGOS)
+// 5. PANTALLA DE PERFIL
 // -----------------------
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel = viewModel(),
     onLogout: () -> Unit,
-    onNavigateToFindFriends: () -> Unit // <-- NUEVO ARGUMENTO: Para ir a la pantalla de búsqueda
+    onNavigateToFindFriends: () -> Unit
 ) {
     val context = LocalContext.current
     // Recolectar datos del ViewModel en tiempo real
     val userProfile by viewModel.userProfile.collectAsState()
     val userPosts by viewModel.userPosts.collectAsState()
 
-    // Estado para el diálogo de confirmación de borrado
+    //diálogo de confirmación de borrado
     var postToDelete by remember { mutableStateOf<Post?>(null) }
     val showDeleteDialog = postToDelete != null
 
-    // Manejar el cierre de sesión dentro del ViewModel
+    // cierre de sesión dentro del ViewModel
     val handleLogout = {
         viewModel.signOut(onLogout)
     }
 
-    // Diálogo de Confirmación de Borrado de Post
+    //  Confirmación de Borrado de Post
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { postToDelete = null },
@@ -942,7 +924,7 @@ fun ProfileScreen(
                             Toast.makeText(context, "Eliminando publicación...", Toast.LENGTH_SHORT).show()
                         }
                         postToDelete = null
-                        Unit // Asegura el tipo de retorno Function0<Unit>
+                        Unit
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                 ) {
@@ -961,31 +943,28 @@ fun ProfileScreen(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // --- Header del Perfil (con botón de búsqueda) ---
+        // Header del Perfil ---
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Perfil", fontSize = 22.sp, color = InstitutionalGreen, fontWeight = FontWeight.Bold)
-            IconButton(onClick = onNavigateToFindFriends) { // <-- BOTÓN DE AMIGOS
+            IconButton(onClick = onNavigateToFindFriends) { // BOTÓN DE AMIGOS
                 Icon(Icons.Default.GroupAdd, contentDescription = "Buscar amigos", tint = InstitutionalGreen, modifier = Modifier.size(32.dp))
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Si el perfil no se ha cargado, mostrar un indicador de carga o un placeholder simple.
         userProfile?.let { user ->
-            // Contenedor de la foto de perfil (AHORA CON IMAGEN REAL DE COIL)
             Box(
                 modifier = Modifier.size(100.dp).clip(CircleShape).background(Color.LightGray),
                 contentAlignment = Alignment.Center
             ) {
-                // Usa AsyncImage si hay una URL de perfil
                 if (user.profileImageUrl.isNotEmpty()) {
                     AsyncImage(
-                        model = user.profileImageUrl, // La URL de la foto de Google
+                        model = user.profileImageUrl, // URL de la foto de Google
                         contentDescription = "Foto de Perfil",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
@@ -1001,17 +980,15 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Stats dinámicos (usando los contadores del modelo User)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 StatItem(user.postCount.toString(), "Publicaciones")
                 StatItem(user.likeCount.toString(), "Likes")
-                StatItem(user.friends.size.toString(), "Amigos") // <-- Muestra conteo de amigos
+                StatItem(user.friends.size.toString(), "Amigos")
             }
         } ?: run {
-            // Placeholder mientras carga o si hay un error
             CircularProgressIndicator(color = InstitutionalGreen)
             Spacer(modifier = Modifier.height(8.dp))
             Text("Cargando perfil...")
@@ -1019,13 +996,12 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Muestra mensaje de ayuda para borrar
         if (userPosts.isNotEmpty()) {
             Text("Mantén presionado para borrar una publicación.", fontSize = 12.sp, color = Color.Gray)
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        // Grid de publicaciones (se adapta al número real de posts)
+        // Grid de publicaciones
         val postCount = userPosts.size
 
         if (postCount > 0) {
@@ -1037,7 +1013,6 @@ fun ProfileScreen(
             ) {
                 items(postCount) { index ->
                     val post = userPosts[index]
-                    // Implementar long-press para borrar
                     Box(
                         modifier = Modifier
                             .aspectRatio(1f)
@@ -1060,7 +1035,7 @@ fun ProfileScreen(
                 }
             }
         } else if (userProfile != null) {
-            // Mensaje si no hay publicaciones y el perfil ya cargó
+
             Text(
                 "¡Aún no tienes publicaciones!",
                 color = Color.Gray,
@@ -1092,44 +1067,40 @@ fun StatItem(count: String, label: String) {
 }
 
 /// -----------------------
-// 6. PANTALLA DETALLE NFC (MODIFICADA: Muestra Mapa y Punto de Interés)
+// 6. PANTALLA DETALLE NFC
 // -----------------------
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NfcDetailScreen(
-    tagData: String, // Recibe el String Formateado: "Nombre|||Descripción|||Lat,Lon"
+    tagData: String,
     onNavigateBack: () -> Unit
 ) {
-    // 1. Parsear los datos del JSON formateado
     val parts = tagData.split("|||")
 
     val name = parts.getOrElse(0) { "Nombre no encontrado" }
     val description = parts.getOrElse(1) { "Descripción no encontrada" }
     val coordinatesString = parts.getOrElse(2) { "0.0,0.0" }
 
-    // Convertir la cadena de coordenadas (Lat,Lon) a un objeto LatLng
     val latLng = try {
         val coords = coordinatesString.split(",")
-        // Aseguramos que la latitud y longitud tengan valores válidos antes de convertir
         val lat = coords.getOrElse(0) { "0.0" }.toDoubleOrNull() ?: 0.0
         val lng = coords.getOrElse(1) { "0.0" }.toDoubleOrNull() ?: 0.0
         LatLng(lat, lng)
     } catch (e: Exception) {
-        LatLng(0.0, 0.0) // LatLng por defecto si falla la lectura o el formato
+        LatLng(0.0, 0.0)
     }
 
-    // 2. Configuración del Mapa para centrarse en el punto de interés
+    // Configuración del Mapa en el punto de interés
     val cameraPositionState = rememberCameraPositionState {
-        position = CameraPosition.fromLatLngZoom(latLng, 17f) // Zoom 17 es bueno para puntos de interés
+        position = CameraPosition.fromLatLngZoom(latLng, 17f)
     }
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar( // Componente M3 que ya está siendo usado en su proyecto
+            CenterAlignedTopAppBar(
                 title = { Text("Punto de Interés: $name", color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        // FIX: Usamos Icons.Default.ArrowBack para resolver la importación
                         Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
                     }
                 },
@@ -1143,31 +1114,29 @@ fun NfcDetailScreen(
                 .padding(paddingValues),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // MAPA DE GOOGLE (Punto de Interés)
+            // Punto de Interés en MAPS
             GoogleMap(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.7f), // Ocupa la mayoría del espacio
+                    .weight(0.7f),
                 cameraPositionState = cameraPositionState
             ) {
-                // Marcador bonito en la posición leída del NFC
                 Marker(
                     state = MarkerState(position = latLng),
                     title = name,
                     snippet = description,
-                    visible = (latLng.latitude != 0.0 || latLng.longitude != 0.0) // Ocultar si las coordenadas son 0,0
+                    visible = (latLng.latitude != 0.0 || latLng.longitude != 0.0)
                 )
             }
 
-            // DETALLES ADICIONALES (Sección de texto)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(0.3f) // Ocupa el espacio restante
+                    .weight(0.3f)
                     .padding(16.dp),
                 horizontalAlignment = Alignment.Start
             ) {
-                // Título del Lugar (Nombre)
+                // Título del Lugar
                 Text(
                     text = name,
                     fontSize = 20.sp,
@@ -1202,7 +1171,7 @@ fun FindFriendScreen(
     viewModel: ProfileViewModel = viewModel()
 ) {
     val searchResults by viewModel.searchResults.collectAsState()
-    val currentUserProfile by viewModel.userProfile.collectAsState() // Para saber quién es amigo de quién
+    val currentUserProfile by viewModel.userProfile.collectAsState()
     val currentUserId = remember { Firebase.auth.currentUser?.uid }
 
     var searchText by remember { mutableStateOf("") }
@@ -1212,7 +1181,7 @@ fun FindFriendScreen(
         if (searchText.length > 2) {
             viewModel.searchUsers(searchText.trim())
         } else {
-            viewModel.searchUsers("") // Limpia los resultados si el texto es muy corto
+            viewModel.searchUsers("")
         }
     }
 
@@ -1256,10 +1225,7 @@ fun FindFriendScreen(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Usamos items(list) para mayor simplicidad
                     items(searchResults) { user ->
-
-                        // Determinar si el usuario buscado ya es amigo del usuario actual
                         val isFriend = remember(currentUserProfile) {
                             currentUserProfile?.friends?.contains(user.uid) == true
                         }
@@ -1278,7 +1244,7 @@ fun FindFriendScreen(
     }
 }
 
-// Composable para cada resultado de búsqueda
+//resultado de búsqueda--
 @Composable
 fun UserSearchResultItem(
     user: User,
@@ -1297,7 +1263,6 @@ fun UserSearchResultItem(
         ) {
             // Información del usuario
             Row(verticalAlignment = Alignment.CenterVertically) {
-                // Icono/Foto de Perfil
                 Box(
                     modifier = Modifier.size(40.dp).clip(CircleShape).background(InstitutionalGreen.copy(alpha = 0.5f)),
                     contentAlignment = Alignment.Center
@@ -1310,7 +1275,7 @@ fun UserSearchResultItem(
                     }
                 }
                 Spacer(modifier = Modifier.width(12.dp))
-                // Nombre de usuario
+
                 Column {
                     Text("@${user.username}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Text("Posts: ${user.postCount}", fontSize = 12.sp, color = Color.Gray)

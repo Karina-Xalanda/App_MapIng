@@ -36,7 +36,7 @@ data class NfcData(
 
 class MainActivity : ComponentActivity() {
 
-    // Función auxiliar para extraer datos JSON NDEF del Intent (SIN CAMBIOS)
+    // Función  para extraer datos JSON del NFC
     private fun getNfcDataFromIntent(intent: Intent?): String? {
         if (intent == null || intent.action != NfcAdapter.ACTION_NDEF_DISCOVERED) return null
 
@@ -75,7 +75,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. PROCESAR NFC DATA FUERA DE COMPOSE
         val nfcData = getNfcDataFromIntent(intent)
         val initialNfcDataEncoded = if (nfcData != null) {
             URLEncoder.encode(nfcData, StandardCharsets.UTF_8.toString())
@@ -83,8 +82,6 @@ class MainActivity : ComponentActivity() {
             null
         }
 
-        // CORRECCIÓN CLAVE: La ruta base SIEMPRE es Login.
-        // Esto garantiza que el NavGraph se inicialice sin problemas.
         val startRoute = AppScreen.Login.route
 
         setContent {
@@ -92,21 +89,18 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     val navController = rememberNavController()
 
-                    // NAVEGACIÓN CONDICIONAL: Solo navegar si hay datos NFC y la ruta es válida.
+                    // Solo navega si hay datos NFC y la ruta es válida.
                     LaunchedEffect(initialNfcDataEncoded) {
                         if (initialNfcDataEncoded != null && navController.currentDestination?.route == startRoute) {
-                            // Navega al detalle NFC DESPUÉS de que el NavHost esté listo
                             navController.navigate(AppScreen.NfcDetail.createRoute(initialNfcDataEncoded)) {
-                                // Limpia la pila para que no pueda volver a Login
                                 popUpTo(AppScreen.Login.route) { inclusive = true }
                             }
                         }
                     }
 
-                    // NavHost comienza siempre en la ruta base de Login
                     NavHost(navController = navController, startDestination = startRoute) {
 
-                        // 1. LOGIN
+                        // LOGIN
                         composable(AppScreen.Login.route) {
                             LoginScreen(
                                 onLoginSuccess = {
@@ -117,7 +111,7 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // 2. MAPA PRINCIPAL
+                        // MAPA PRINCIPAL
                         composable(AppScreen.Map.route) {
                             MainMapScreen(
                                 onNavigateToUpload = { navController.navigate(AppScreen.Upload.route) },
@@ -128,14 +122,14 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        // 3. SUBIR PUBLICACIÓN
+                        // SUBIR PUBLICACIÓN
                         composable(AppScreen.Upload.route) {
                             UploadPostScreen(
                                 onPostUploaded = { navController.popBackStack() }
                             )
                         }
 
-                        // 4. PERFIL
+                        // PERFIL
                         composable(AppScreen.Profile.route) {
                             ProfileScreen(
                                 onLogout = {
@@ -190,10 +184,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Sobrescribir onNewIntent
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        // Solo actualizar el intent para que el LaunchedEffect lo use si detecta un nuevo tag
         this.intent = intent
     }
 }

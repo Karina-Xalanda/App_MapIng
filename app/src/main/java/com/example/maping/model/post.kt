@@ -2,7 +2,7 @@ package com.example.maping.model
 
 import com.google.firebase.firestore.DocumentId
 
-//  campos que  se guardan en Firestore
+//  campos que  se guardan en Firestore database en la coleccion  post
 data class Post(
     @DocumentId val id: String = "", // Firestore asignara el ID del documento aqui
     val userId: String = "",

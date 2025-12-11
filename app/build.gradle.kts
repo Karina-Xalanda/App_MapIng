@@ -75,13 +75,12 @@ dependencies {
 
     implementation(libs.play.services.auth)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.play.services.location) // GPS
+    implementation(libs.play.services.location)
 
-    // --- AGREGA ESTAS LÍNEAS PARA EL MAPA ---
     implementation(libs.maps.compose)
     implementation(libs.play.services.maps)
 
-    implementation("io.coil-kt:coil-compose:2.6.0") // Añadir esta línea
+    implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("com.google.code.gson:gson:2.10.1")
 
 }
