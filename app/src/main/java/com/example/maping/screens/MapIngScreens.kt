@@ -73,6 +73,11 @@ import com.example.maping.model.User
 import androidx.compose.foundation.lazy.LazyColumn // <-- NUEVO
 import androidx.compose.foundation.lazy.items // <-- NUEVO (Para usar items(list))
 
+//import para la img del logo
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.example.maping.R
+
 // -----------------------
 // 1. PANTALLA DE INICIO DE SESIÓN
 // -----------------------
@@ -137,7 +142,11 @@ fun LoginScreen(
                 .background(InstitutionalGreen, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.LocationOn, contentDescription = "Logo", tint = Color.White, modifier = Modifier.size(72.dp))
+            Image(
+                painter = painterResource(id = R.drawable.logo_maping), // Pon aquí el nombre exacto de tu archivo
+                contentDescription = "Logo de MapIng",
+                modifier = Modifier.size(80.dp) // Ajusta el tamaño de la imagen si es necesario
+            )
         }
 
         Spacer(modifier = Modifier.height(32.dp))
