@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "888575070102",
+    "project_id": "maping-844a4",
+    "storage_bucket": "maping-844a4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:888575070102:android:89e805e94e21da9aa657b7",
+        "android_client_info": {
+          "package_name": "com.example.maping"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "888575070102-qprg8802gasg9mcjeliseigncfpkov36.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.maping",
+            "certificate_hash": "c674eaefacd7ec34b17da6e3bc4f164214dcb1c6"
+          }
+        },
+        {
+          "client_id": "888575070102-2b0j2lo66aub1j5596i1nt2p7clnlc11.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmqr8iHAu4OAmBwXOZSh1MW-2cLe_9TaU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "888575070102-2b0j2lo66aub1j5596i1nt2p7clnlc11.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

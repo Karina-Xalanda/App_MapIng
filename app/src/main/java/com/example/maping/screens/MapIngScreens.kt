@@ -66,7 +66,7 @@ fun LoginScreen(
 
     // Configuración de Google
     val googleSignInOptions = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-        .requestIdToken("404146820646-pc9au7bcd7bp6kacdkl04lej0al23dr0.apps.googleusercontent.com") // Tu ID real
+        .requestIdToken("888575070102-2b0j2lo66aub1j5596i1nt2p7clnlc11.apps.googleusercontent.com") // ID CLIENTE WEB
         .requestEmail()
         .build()
 
