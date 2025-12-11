@@ -11,7 +11,6 @@ data class Post(
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
     val timestamp: Long = 0,
-    // --- NUEVOS CAMPOS PARA FUNCIONALIDAD SOCIAL ---
     val likeCount: Int = 0, // Contador de likes
     val likedBy: List<String> = emptyList() // Lista de UIDs de usuarios que dieron like
 )
