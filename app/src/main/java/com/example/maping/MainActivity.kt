@@ -116,7 +116,9 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate(AppScreen.Login.route) {
                                         popUpTo(AppScreen.Map.route) { inclusive = true }
                                     }
-                                }
+                                },
+                                // Navegación a la nueva pantalla de búsqueda de amigos
+                                onNavigateToFindFriends = { navController.navigate(AppScreen.FindFriends.route) }
                             )
                         }
 
@@ -148,6 +150,13 @@ class MainActivity : ComponentActivity() {
                                         popUpTo(AppScreen.NfcDetail.route) { inclusive = true }
                                     }
                                 }
+                            )
+                        }
+
+                        // 7. BÚSQUEDA DE AMIGOS
+                        composable(AppScreen.FindFriends.route) {
+                            FindFriendScreen(
+                                onNavigateBack = { navController.popBackStack() }
                             )
                         }
                     }
