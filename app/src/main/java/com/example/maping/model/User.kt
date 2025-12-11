@@ -11,5 +11,6 @@ data class User(
     val postCount: Int = 0, // Contador de Publicaciones (comienza en 0)
     val likeCount: Int = 0, // Contador de Likes recibidos (comienza en 0)
     val visitedCount: Int = 0, // Contador de Lugares visitados (comienza en 0)
+    val friends: List<String> = emptyList(), // <-- ¡NUEVO CAMPO! Lista de UIDs de amigos
     val timestamp: Long = System.currentTimeMillis() // Fecha de registro
 )

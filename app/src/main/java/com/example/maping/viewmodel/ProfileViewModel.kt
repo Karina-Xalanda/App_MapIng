@@ -31,6 +31,10 @@ class ProfileViewModel : ViewModel() {
     private val _userPosts = MutableStateFlow<List<Post>>(emptyList())
     val userPosts: StateFlow<List<Post>> = _userPosts
 
+    // NUEVO: Estado para resultados de búsqueda de usuarios
+    private val _searchResults = MutableStateFlow<List<User>>(emptyList())
+    val searchResults: StateFlow<List<User>> = _searchResults
+
     init {
         if (currentUserId != null) {
             listenToUserProfile(currentUserId)
@@ -75,11 +79,13 @@ class ProfileViewModel : ViewModel() {
             }
     }
 
-    // ✅ NUEVA FUNCIÓN: Borrar un post desde el perfil
+    // ✅ ACTUALIZADA: La lógica de actualización de contadores ya es correcta en DetailViewModel,
+    // pero esta función la necesita para que la eliminación desde el perfil funcione.
     fun deletePost(post: Post) {
         viewModelScope.launch {
             try {
                 val postRef = db.collection("posts").document(post.id)
+                val userRef = db.collection("users").document(post.userId)
 
                 // 1. Borrar la imagen de Storage
                 if (post.imageUrl.isNotEmpty()) {
@@ -92,22 +98,88 @@ class ProfileViewModel : ViewModel() {
                     }
                 }
 
-                // 2. Borrar el post de Firestore
-                postRef.delete().await()
-                Log.d("ProfileViewModel", "Post borrado de Firestore")
+                // 2. Transacción para actualizar contadores y borrar el post
+                db.runTransaction { transaction ->
+                    // Decrementar postCount en el perfil del usuario
+                    transaction.update(userRef, "postCount", FieldValue.increment(-1))
 
-                // 3. Actualizar contadores del usuario
-                val userRef = db.collection("users").document(post.userId)
-                userRef.update("postCount", FieldValue.increment(-1)).await()
+                    // Actualizar el contador de likes si el post tenía likes
+                    if (post.likeCount > 0) {
+                        transaction.update(userRef, "likeCount", FieldValue.increment(-post.likeCount.toLong()))
+                    }
 
-                // 4. Actualizar el contador de likes si el post tenía likes
-                if (post.likeCount > 0) {
-                    userRef.update("likeCount", FieldValue.increment(-post.likeCount.toLong())).await()
-                }
+                    // Eliminar el documento del post
+                    transaction.delete(postRef)
+                    null
+                }.await()
 
                 Log.d("ProfileViewModel", "Post borrado con éxito")
             } catch (e: Exception) {
                 Log.e("ProfileViewModel", "Error al borrar post: ${e.message}")
+            }
+        }
+    }
+
+
+    // =====================================================================
+    // FUNCIONES DE AMIGOS/BÚSQUEDA
+    // =====================================================================
+
+    fun searchUsers(query: String) {
+        if (query.isBlank() || currentUserId == null) {
+            _searchResults.value = emptyList()
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                // Realiza una consulta para buscar usuarios por nombre de usuario (ignorando mayúsculas/minúsculas)
+                // Usamos whereGreaterThanOrEqualTo y whereLessThan para buscar prefijos (búsqueda aproximada)
+                val endString = query + "\uf8ff" // truco para obtener todos los documentos que comienzan con 'query'
+
+                val snapshot = db.collection("users")
+                    .whereGreaterThanOrEqualTo("username", query)
+                    .whereLessThanOrEqualTo("username", endString)
+                    .limit(10) // Limitar resultados por eficiencia
+                    .get()
+                    .await()
+
+                val results = snapshot.documents.mapNotNull { doc ->
+                    doc.toObject(User::class.java)
+                }.filter { it.uid != currentUserId } // Excluir al usuario actual
+
+                _searchResults.value = results
+                Log.d("ProfileViewModel", "Búsqueda exitosa, ${results.size} resultados.")
+
+            } catch (e: Exception) {
+                Log.e("ProfileViewModel", "Error al buscar usuarios: ${e.message}")
+                _searchResults.value = emptyList()
+            }
+        }
+    }
+
+    // NUEVA FUNCIÓN: Añadir o eliminar amigo
+    fun toggleFriend(friendUserId: String, isCurrentlyFriend: Boolean) {
+        if (currentUserId == null || currentUserId == friendUserId) return
+
+        viewModelScope.launch {
+            val currentUserRef = db.collection("users").document(currentUserId)
+            val friendUserRef = db.collection("users").document(friendUserId)
+
+            try {
+                if (isCurrentlyFriend) {
+                    // Quitar amigo (arrayRemove)
+                    currentUserRef.update("friends", FieldValue.arrayRemove(friendUserId)).await()
+                    friendUserRef.update("friends", FieldValue.arrayRemove(currentUserId)).await()
+                    Log.d("ProfileViewModel", "Amigo eliminado: $friendUserId")
+                } else {
+                    // Añadir amigo (arrayUnion)
+                    currentUserRef.update("friends", FieldValue.arrayUnion(friendUserId)).await()
+                    friendUserRef.update("friends", FieldValue.arrayUnion(currentUserId)).await()
+                    Log.d("ProfileViewModel", "Amigo añadido: $friendUserId")
+                }
+            } catch (e: Exception) {
+                Log.e("ProfileViewModel", "Error al cambiar estado de amistad: ${e.message}")
             }
         }
     }

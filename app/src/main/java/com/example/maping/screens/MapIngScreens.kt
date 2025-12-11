@@ -66,6 +66,9 @@ import coil.compose.AsyncImage
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.foundation.lazy.LazyColumn // <-- ¡NUEVO! Para LazyColumn
+import androidx.compose.foundation.lazy.items // <-- ¡NUEVO! Para la función items(list)
+import com.example.maping.model.User
 
 // -----------------------
 // 1. PANTALLA DE INICIO DE SESIÓN
@@ -566,7 +569,13 @@ fun PlaceDetailScreen(
                 )
             },
             confirmButton = {
-                Button(onClick = saveEdit, enabled = editInput.isNotBlank()) {
+                Button(
+                    onClick = {
+                        saveEdit() // Llama a la lógica de guardado
+                        Unit // <--- 🛠️ FIX APLICADO AQUÍ (Línea 569)
+                    },
+                    enabled = editInput.isNotBlank()
+                ) {
                     Text("Guardar")
                 }
             },
@@ -773,6 +782,7 @@ fun CommentItem(
                             onClick = {
                                 onEdit(comment)
                                 showMenu.value = false
+                                Unit // <--- 🛠️ CORRECCIÓN APLICADA AQUÍ
                             },
                             leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) }
                         )
@@ -781,6 +791,7 @@ fun CommentItem(
                             onClick = {
                                 onDelete(comment.id)
                                 showMenu.value = false
+                                Unit // <--- 🛠️ CORRECCIÓN APLICADA AQUÍ
                             },
                             leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red) }
                         )
@@ -792,12 +803,13 @@ fun CommentItem(
 }
 
 // -----------------------
-// 5. PANTALLA DE PERFIL (MODIFICADA: AÑADE LÓGICA PARA BORRAR POSTS)
+// 5. PANTALLA DE PERFIL (MODIFICADA: AÑADE LÓGICA PARA BORRAR POSTS, AMIGOS)
 // -----------------------
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel = viewModel(),
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onNavigateToFindFriends: () -> Unit // <-- NUEVO ARGUMENTO: Para ir a la pantalla de búsqueda
 ) {
     val context = LocalContext.current
     // Recolectar datos del ViewModel en tiempo real
@@ -827,6 +839,7 @@ fun ProfileScreen(
                             Toast.makeText(context, "Eliminando publicación...", Toast.LENGTH_SHORT).show()
                         }
                         postToDelete = null
+                        Unit // Asegura el tipo de retorno Function0<Unit>
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
                 ) {
@@ -845,7 +858,18 @@ fun ProfileScreen(
         modifier = Modifier.fillMaxSize().padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Perfil", fontSize = 22.sp, color = InstitutionalGreen, fontWeight = FontWeight.Bold)
+        // --- Header del Perfil (con botón de búsqueda) ---
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Perfil", fontSize = 22.sp, color = InstitutionalGreen, fontWeight = FontWeight.Bold)
+            IconButton(onClick = onNavigateToFindFriends) { // <-- BOTÓN DE AMIGOS
+                Icon(Icons.Default.GroupAdd, contentDescription = "Buscar amigos", tint = InstitutionalGreen, modifier = Modifier.size(32.dp))
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         // Si el perfil no se ha cargado, mostrar un indicador de carga o un placeholder simple.
@@ -881,7 +905,7 @@ fun ProfileScreen(
             ) {
                 StatItem(user.postCount.toString(), "Publicaciones")
                 StatItem(user.likeCount.toString(), "Likes")
-                StatItem(user.visitedCount.toString(), "Visitados")
+                StatItem(user.friends.size.toString(), "Amigos") // <-- Muestra conteo de amigos
             }
         } ?: run {
             // Placeholder mientras carga o si hay un error
@@ -1016,6 +1040,147 @@ fun NfcDetailScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(tagData, color = Color.Black, fontSize = 14.sp)
                 }
+            }
+        }
+    }
+}
+
+// ... (Al final de MapIngScreens.kt)
+
+// -----------------------
+// 7. PANTALLA DE BÚSQUEDA DE USUARIOS/AMIGOS
+// -----------------------
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FindFriendScreen(
+    onNavigateBack: () -> Unit,
+    viewModel: ProfileViewModel = viewModel()
+) {
+    val searchResults by viewModel.searchResults.collectAsState()
+    val currentUserProfile by viewModel.userProfile.collectAsState() // Para saber quién es amigo de quién
+    val currentUserId = remember { Firebase.auth.currentUser?.uid }
+
+    var searchText by remember { mutableStateOf("") }
+
+    // Dispara la búsqueda cuando el texto cambia
+    LaunchedEffect(searchText) {
+        if (searchText.length > 2) {
+            viewModel.searchUsers(searchText.trim())
+        } else {
+            viewModel.searchUsers("") // Limpia los resultados si el texto es muy corto
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = { Text("Buscar Usuarios", color = Color.White) },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver", tint = Color.White)
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = InstitutionalGreen)
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp)
+        ) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Campo de Búsqueda
+            OutlinedTextField(
+                value = searchText,
+                onValueChange = { searchText = it },
+                label = { Text("Buscar por nombre de usuario...") },
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (searchText.length < 3) {
+                Text("Ingresa al menos 3 caracteres para buscar.", color = Color.Gray, modifier = Modifier.padding(8.dp))
+            } else if (searchResults.isEmpty()) {
+                Text("No se encontraron usuarios con ese nombre.", color = Color.Gray, modifier = Modifier.padding(8.dp))
+            } else {
+                // Lista de Resultados
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(searchResults.size) { index ->
+                        val user = searchResults[index]
+
+                        // Determinar si el usuario buscado ya es amigo del usuario actual
+                        val isFriend = remember(currentUserProfile) {
+                            currentUserProfile?.friends?.contains(user.uid) == true
+                        }
+
+                        UserSearchResultItem(
+                            user = user,
+                            isFriend = isFriend,
+                            onToggleFriend = {
+                                viewModel.toggleFriend(user.uid, isFriend)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Composable para cada resultado de búsqueda
+@Composable
+fun UserSearchResultItem(
+    user: User,
+    isFriend: Boolean,
+    onToggleFriend: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Información del usuario
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Icono/Foto de Perfil
+                Box(
+                    modifier = Modifier.size(40.dp).clip(CircleShape).background(InstitutionalGreen.copy(alpha = 0.5f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Usar AsyncImage si hay URL
+                    if (user.profileImageUrl.isNotEmpty()) {
+                        AsyncImage(model = user.profileImageUrl, contentDescription = "Perfil de ${user.username}", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                    } else {
+                        Icon(Icons.Default.Person, contentDescription = null, tint = Color.White)
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                // Nombre de usuario
+                Column {
+                    Text("@${user.username}", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Text("Posts: ${user.postCount}", fontSize = 12.sp, color = Color.Gray)
+                }
+            }
+
+            // Botón Añadir/Eliminar
+            Button(
+                onClick = onToggleFriend,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (isFriend) Color.Red else InstitutionalGreen
+                ),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(if (isFriend) "Eliminar" else "Añadir", color = Color.White, fontSize = 12.sp)
             }
         }
     }
