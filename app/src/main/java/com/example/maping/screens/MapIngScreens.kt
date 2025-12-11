@@ -52,7 +52,7 @@ import androidx.compose.runtime.collectAsState
 // otros imports
 import com.example.maping.viewmodel.UploadViewModel
 import com.example.maping.viewmodel.PostUploadState
-import android.widget.Toast // necesario para mostrar el mensaje de exito
+import android.widget.Toast // necesario para mostrar el mensaje de exito2
 import com.example.maping.viewmodel.ProfileViewModel
 import com.example.maping.viewmodel.DetailViewModel
 import com.google.firebase.auth.ktx.auth
